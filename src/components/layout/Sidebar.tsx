@@ -56,13 +56,24 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       <div className="flex-1" />
 
-      <button
+      {/* Switch renders its own <button role="switch"> — a real <button>
+          wrapper would nest button-in-button (invalid HTML). This row acts
+          as one control: div+role=button, Switch stays visual/inert. */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={toggle}
-        className="flex w-full items-center gap-[11px] rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        }}
+        className="flex w-full cursor-pointer items-center gap-[11px] rounded-[10px] px-3 py-2.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Switch checked={theme === 'light'} aria-label="Cambiar tema" className="pointer-events-none flex-none" />
         {!collapsed && <span className="whitespace-nowrap">{theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>}
-      </button>
+      </div>
 
       <button
         onClick={onToggle}

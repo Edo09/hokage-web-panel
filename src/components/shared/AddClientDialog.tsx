@@ -52,9 +52,14 @@ export function AddClientDialog({
     if (!n) return setError('Escribe el nombre del cliente.');
     if (!e.includes('@') || !e.includes('.')) return setError('Escribe un correo válido.');
     setSaving(true);
-    await createClient({ display_name: n, email: e });
-    setSuccess(true);
-    setSaving(false);
+    try {
+      await createClient({ display_name: n, email: e });
+      setSuccess(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el cliente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const done = () => {

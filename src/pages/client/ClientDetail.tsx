@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, UserX } from 'lucide-react';
 import type { ClientWithMeta } from '@/types';
 import { getClient } from '@/services/clients';
-import { avatarColor } from '@/lib/utils';
+import { activityLabel, avatarColor } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -83,8 +83,8 @@ export default function ClientDetail() {
             />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-heading text-[19px] font-semibold">{client.display_name}</span>
-                <StatusBadge status={client.membership.status} />
+                <span className="font-heading text-[19px] font-semibold">{client.display_name ?? client.email}</span>
+                {client.membership && <StatusBadge status={client.membership.status} />}
               </div>
               <div className="mt-0.5 text-[12.5px] text-faint">{client.email}</div>
               <div className="mt-2.5 flex flex-wrap gap-2">
@@ -98,7 +98,7 @@ export default function ClientDetail() {
                   {client.weight_kg ?? '—'} kg
                 </span>
                 <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
-                  Actividad: {client.activity_level}
+                  Actividad: {activityLabel(client.activity_level)}
                 </span>
               </div>
             </div>

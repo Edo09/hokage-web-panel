@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 /* ---------- domain helpers shared across screens ---------- */
 
-import type { Membership, MembershipStatus } from '@/types';
+import type { ActivityLevel, Membership, MembershipStatus, ProfileGoal } from '@/types';
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -46,7 +46,7 @@ export const relTime = (d: string | Date): string => {
   return n <= 0 ? 'Hoy' : n === 1 ? 'Ayer' : `hace ${n} d`;
 };
 
-export const money = (n: number): string => `RD$ ${Number(n || 0).toLocaleString('en-US')}`;
+export const money = (n: number | null): string => `RD$ ${Number(n || 0).toLocaleString('en-US')}`;
 
 export const initials = (name: string): string =>
   name
@@ -77,8 +77,8 @@ export interface ExpiryInfo {
   tone: 'normal' | 'warning' | 'danger' | 'muted';
 }
 
-export const expiryInfo = (m: Membership): ExpiryInfo => {
-  if (!m.expires_at) return { label: '—', tone: 'muted' };
+export const expiryInfo = (m: Membership | null): ExpiryInfo => {
+  if (!m || !m.expires_at) return { label: '—', tone: 'muted' };
   const d = daysDiff(m.expires_at);
   if (m.status === 'active' && d >= 0 && d <= 7) return { label: `Vence en ${d} d`, tone: 'warning' };
   if (m.status === 'expired' || d < 0) return { label: `Venció ${fmtShort(m.expires_at)}`, tone: 'danger' };
@@ -91,3 +91,19 @@ export const MEAL_TYPE_LABELS: Record<string, string> = {
   dinner: 'Cena',
   snack: 'Merienda',
 };
+
+export const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
+  sedentary: 'Sedentario',
+  active: 'Activo',
+  very_active: 'Muy activo',
+};
+
+export const activityLabel = (a: ActivityLevel | null): string => (a ? ACTIVITY_LABELS[a] : '—');
+
+export const GOAL_LABELS: Record<ProfileGoal, string> = {
+  lose_weight: 'Perder peso',
+  gain_muscle: 'Ganar músculo',
+  maintain: 'Mantener',
+};
+
+export const goalLabel = (g: ProfileGoal | null): string | null => (g ? GOAL_LABELS[g] : null);

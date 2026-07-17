@@ -2,23 +2,30 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { useCoach } from '@/hooks/useCoach';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function Login() {
   const { signIn } = useAuth();
-  const { coach } = useCoach();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    signIn();
+    setError('');
+    setLoading(true);
+    const { error: signInError } = await signIn(email.trim(), password);
+    setLoading(false);
+    if (signInError) {
+      setError(signInError);
+      return;
+    }
     navigate('/');
-    toast.success(`Bienvenido de nuevo, ${coach.display_name}`);
+    toast.success('Bienvenido de nuevo');
   };
 
   return (
@@ -42,7 +49,12 @@ export default function Login() {
           </div>
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-3.5">
+        <form
+          onSubmit={(e) => {
+            void submit(e);
+          }}
+          className="flex flex-col gap-3.5"
+        >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Correo electrónico</Label>
             <Input
@@ -50,7 +62,10 @@ export default function Login() {
               type="email"
               placeholder="coach@hokage.do"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setError('');
+              }}
               autoComplete="username"
             />
           </div>
@@ -61,12 +76,16 @@ export default function Login() {
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError('');
+              }}
               autoComplete="current-password"
             />
           </div>
-          <Button type="submit" size="lg" className="mt-1.5">
-            Iniciar sesión
+          {error && <p className="text-[12.5px] text-primary">{error}</p>}
+          <Button type="submit" size="lg" className="mt-1.5" disabled={loading}>
+            {loading ? 'Iniciando…' : 'Iniciar sesión'}
           </Button>
         </form>
 

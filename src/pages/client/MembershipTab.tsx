@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import type { ClientWithMeta, MembershipStatus } from '@/types';
+import type { ClientWithMeta, Membership, MembershipStatus } from '@/types';
 import { renewMembership, updateMembership } from '@/services/clients';
 import { cn, expiryInfo, fmtDate, fromDateInput, money, STATUS_LABELS, toDateInput } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,16 +30,31 @@ const TONE_CLASS = {
 
 const STATUSES: MembershipStatus[] = ['active', 'paused', 'expired', 'cancelled'];
 
-export function MembershipTab({ client, onChanged }: { client: ClientWithMeta; onChanged: () => void }) {
-  const m = client.membership;
-  const exp = expiryInfo(m);
+const EMPTY_MEMBERSHIP: Membership = {
+  id: '',
+  client_id: '',
+  coach_id: null,
+  plan_name: '',
+  status: 'paused',
+  price: 0,
+  currency: 'DOP',
+  started_at: new Date().toISOString(),
+  expires_at: null,
+  notes: '',
+  created_at: '',
+  updated_at: '',
+};
 
-  const [plan, setPlan] = useState(m.plan_name);
+export function MembershipTab({ client, onChanged }: { client: ClientWithMeta; onChanged: () => void }) {
+  const m = client.membership ?? EMPTY_MEMBERSHIP;
+  const exp = expiryInfo(client.membership);
+
+  const [plan, setPlan] = useState(m.plan_name ?? '');
   const [status, setStatus] = useState<MembershipStatus>(m.status);
-  const [price, setPrice] = useState(String(m.price));
+  const [price, setPrice] = useState(String(m.price ?? 0));
   const [start, setStart] = useState(toDateInput(m.started_at));
   const [expiresAt, setExpiresAt] = useState(toDateInput(m.expires_at));
-  const [notes, setNotes] = useState(m.notes);
+  const [notes, setNotes] = useState(m.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
 

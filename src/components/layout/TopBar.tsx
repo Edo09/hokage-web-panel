@@ -36,8 +36,7 @@ export function TopBar({ title }: { title: string }) {
         </div>
         <button
           onClick={() => {
-            signOut();
-            navigate('/login');
+            void signOut().then(() => navigate('/login'));
           }}
           aria-label="Cerrar sesión"
           title="Cerrar sesión"

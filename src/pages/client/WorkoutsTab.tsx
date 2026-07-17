@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, X } from 'lucide-react';
-import type { ClientWithMeta } from '@/types';
+import type { ClientWithMeta, Exercise } from '@/types';
 import { assignRoutine } from '@/services/clients';
+import { listExercises } from '@/services/exercises';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,21 +11,39 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OwnerBadge } from '@/components/shared/StatusBadge';
 
-const WEEKDAYS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+/** Stored value is lowercase English ('monday'..'sunday') — matches the
+ *  mobile app's convention (day-scheduling/muscle-group logic indexes by
+ *  it); the coach only ever sees the Spanish label. */
+const WEEKDAYS: { value: string; label: string }[] = [
+  { value: 'monday', label: 'Lunes' },
+  { value: 'tuesday', label: 'Martes' },
+  { value: 'wednesday', label: 'Miércoles' },
+  { value: 'thursday', label: 'Jueves' },
+  { value: 'friday', label: 'Viernes' },
+  { value: 'saturday', label: 'Sábado' },
+  { value: 'sunday', label: 'Domingo' },
+];
+
+const dayLabel = (value: string | null): string =>
+  (value && WEEKDAYS.find((w) => w.value === value)?.label) || value || '—';
+
+const DATALIST_ID = 'exercise-catalog-options';
 
 interface BuilderRow {
-  name: string;
+  exerciseName: string; // resolved to exercise_id at submit against the catalog
   sets: string;
   reps: string;
   weight: string;
   rest: string;
 }
 
-const emptyRow = (): BuilderRow => ({ name: '', sets: '4', reps: '10', weight: '', rest: '90' });
+const emptyRow = (): BuilderRow => ({ exerciseName: '', sets: '4', reps: '10', weight: '', rest: '90' });
 
 const ROW_GRID = 'grid gap-2 [grid-template-columns:2fr_64px_64px_84px_84px_36px]';
 
-/** RoutineBuilder — repeatable exercise rows, assigns a COACH routine. */
+/** RoutineBuilder — repeatable exercise rows, assigns a COACH routine.
+ *  Every exercise must resolve to a catalog entry (routine_exercises.
+ *  exercise_id is a required FK — no more free-text names). */
 function RoutineBuilder({
   client,
   onClose,
@@ -34,44 +53,84 @@ function RoutineBuilder({
   onClose: () => void;
   onAssigned: () => void;
 }) {
+  const [catalog, setCatalog] = useState<Exercise[] | null>(null);
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
-  const [day, setDay] = useState('Lunes');
+  const [day, setDay] = useState('monday');
   const [rows, setRows] = useState<BuilderRow[]>([emptyRow()]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    void listExercises()
+      .then(setCatalog)
+      .catch(() => {
+        toast.error('No se pudo cargar el catálogo de ejercicios');
+        setCatalog([]);
+      });
+  }, []);
+
+  const byName = useMemo(() => {
+    const m = new Map<string, Exercise>();
+    for (const ex of catalog ?? []) m.set(ex.name.trim().toLowerCase(), ex);
+    return m;
+  }, [catalog]);
 
   const upd = (i: number, field: keyof BuilderRow, value: string) =>
     setRows((rs) => rs.map((r, k) => (k === i ? { ...r, [field]: value } : r)));
 
   const submit = async () => {
     const n = name.trim();
-    const exs = rows.filter((r) => r.name.trim());
-    if (!n || !exs.length) {
+    const filled = rows.filter((r) => r.exerciseName.trim());
+    if (!n || !filled.length) {
       toast.error('Ponle nombre y al menos un ejercicio');
       return;
     }
+
+    const resolved: { row: BuilderRow; exercise: Exercise }[] = [];
+    for (const row of filled) {
+      const match = byName.get(row.exerciseName.trim().toLowerCase());
+      if (!match) {
+        toast.error(`"${row.exerciseName}" no está en el catálogo — elige una opción de la lista.`);
+        return;
+      }
+      resolved.push({ row, exercise: match });
+    }
+
     setSaving(true);
-    await assignRoutine(client.id, {
-      name: n,
-      description: desc.trim() || 'Rutina asignada por el coach.',
-      day_of_week: day,
-      exercises: exs.map((r, j) => ({
-        name: r.name.trim(),
-        sets: +r.sets || 3,
-        reps: +r.reps || 10,
-        weight_kg: +r.weight || 0,
-        rest_seconds: +r.rest || 60,
-        sort_order: j,
-      })),
-    });
-    setSaving(false);
-    onAssigned();
-    toast.success(`Rutina asignada a ${client.display_name.split(' ')[0]}`);
+    try {
+      await assignRoutine(client.id, {
+        name: n,
+        description: desc.trim() || 'Rutina asignada por el coach.',
+        day_of_week: day,
+        exercises: resolved.map(({ row, exercise }, j) => ({
+          exercise_id: exercise.id,
+          sets: +row.sets || 3,
+          reps: +row.reps || 10,
+          weight_kg: +row.weight > 0 ? +row.weight : null,
+          rest_seconds: +row.rest || 60,
+          sort_order: j,
+        })),
+      });
+      onAssigned();
+      toast.success(`Rutina asignada a ${client.display_name?.split(' ')[0] ?? 'el cliente'}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo asignar la rutina');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Card className="animate-fade-up border-[1.5px] border-primary p-[22px]">
       <div className="mb-4 font-heading text-[15px] font-semibold">Nueva rutina asignada</div>
+
+      {/* Shared datalist so every row's exercise input autocompletes against
+          the real catalog — resolved back to exercise_id at submit. */}
+      <datalist id={DATALIST_ID}>
+        {(catalog ?? []).map((ex) => (
+          <option key={ex.id} value={ex.name} />
+        ))}
+      </datalist>
 
       <div className="mb-3 grid gap-3 sm:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-1.5">
@@ -91,8 +150,8 @@ function RoutineBuilder({
             </SelectTrigger>
             <SelectContent>
               {WEEKDAYS.map((d) => (
-                <SelectItem key={d} value={d}>
-                  {d}
+                <SelectItem key={d.value} value={d.value}>
+                  {d.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -123,11 +182,13 @@ function RoutineBuilder({
             {rows.map((row, i) => (
               <div key={i} className={`${ROW_GRID} items-center`}>
                 <Input
-                  aria-label="Nombre del ejercicio"
-                  placeholder="Ej. Press de banca"
+                  aria-label="Ejercicio (del catálogo)"
+                  placeholder={catalog === null ? 'Cargando catálogo…' : 'Buscar ejercicio…'}
+                  list={DATALIST_ID}
                   className="h-9 rounded-[9px] text-[13px]"
-                  value={row.name}
-                  onChange={(e) => upd(i, 'name', e.target.value)}
+                  value={row.exerciseName}
+                  onChange={(e) => upd(i, 'exerciseName', e.target.value)}
+                  disabled={catalog === null}
                 />
                 <Input
                   type="number"
@@ -182,8 +243,8 @@ function RoutineBuilder({
         <Button variant="outline" onClick={onClose}>
           Cancelar
         </Button>
-        <Button onClick={() => void submit()} disabled={saving}>
-          {saving ? 'Asignando…' : `Asignar a ${client.display_name.split(' ')[0]}`}
+        <Button onClick={() => void submit()} disabled={saving || catalog === null}>
+          {saving ? 'Asignando…' : `Asignar a ${client.display_name?.split(' ')[0] ?? 'el cliente'}`}
         </Button>
       </div>
     </Card>
@@ -225,7 +286,7 @@ export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onC
               <span className="min-w-0 flex-1 font-heading text-sm font-semibold">{rt.name}</span>
               <OwnerBadge assignedBy={rt.assigned_by} />
               <span className="flex-none rounded-full bg-muted px-2.5 py-[3px] text-[11px] font-semibold text-muted-foreground">
-                {rt.day_of_week}
+                {dayLabel(rt.day_of_week)}
               </span>
             </div>
             <p className="mb-3 mt-1.5 text-[12.5px] text-faint">{rt.description}</p>
@@ -236,9 +297,9 @@ export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onC
               <span className="text-center">Peso</span>
               <span className="text-center">Desc.</span>
             </div>
-            {rt.exercises.map((ex, i) => (
-              <div key={i} className={`${EX_GRID} items-center border-b border-border py-[7px] text-[12.5px]`}>
-                <span className="truncate font-medium">{ex.name}</span>
+            {rt.routine_exercises.map((ex) => (
+              <div key={ex.id} className={`${EX_GRID} items-center border-b border-border py-[7px] text-[12.5px]`}>
+                <span className="truncate font-medium">{ex.exercise?.name ?? '—'}</span>
                 <span className="text-center text-muted-foreground">{ex.sets}</span>
                 <span className="text-center text-muted-foreground">{ex.reps}</span>
                 <span className="text-center text-muted-foreground">{ex.weight_kg ? `${ex.weight_kg} kg` : '—'}</span>

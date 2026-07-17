@@ -27,7 +27,7 @@ export function OverviewTab({ client, onGoTab }: { client: ClientWithMeta; onGoT
   const logs30 = client.logs.filter((l) => daysDiff(l.date) > -30).length;
   const coachRoutines = client.routines.filter((r) => r.assigned_by).length;
   const exp = expiryInfo(client.membership);
-  const per = client.membership.plan_name.includes('Trimestral') ? ' / trim' : ' / mes';
+  const per = client.membership?.plan_name?.includes('Trimestral') ? ' / trim' : ' / mes';
 
   return (
     <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
@@ -50,7 +50,7 @@ export function OverviewTab({ client, onGoTab }: { client: ClientWithMeta; onGoT
         <CardContent className="flex flex-1 flex-col">
           <div className="flex items-baseline gap-1.5">
             <span className="font-heading text-[34px] font-bold text-primary">
-              {client.calorie_goal.toLocaleString('en-US')}
+              {(client.calorie_goal ?? 0).toLocaleString('en-US')}
             </span>
             <span className="text-[13px] text-faint">kcal / día</span>
           </div>
@@ -72,11 +72,11 @@ export function OverviewTab({ client, onGoTab }: { client: ClientWithMeta; onGoT
           <div className="flex flex-col gap-2 text-[13px]">
             <div className="flex justify-between gap-2.5">
               <span className="text-faint">Plan</span>
-              <span className="font-semibold">{client.membership.plan_name}</span>
+              <span className="font-semibold">{client.membership?.plan_name ?? 'Sin plan'}</span>
             </div>
             <div className="flex justify-between gap-2.5">
               <span className="text-faint">Precio</span>
-              <span className="font-semibold">{money(client.membership.price) + per}</span>
+              <span className="font-semibold">{money(client.membership?.price ?? null) + per}</span>
             </div>
             <div className="flex justify-between gap-2.5">
               <span className="text-faint">Vence</span>

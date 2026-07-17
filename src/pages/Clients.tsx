@@ -37,7 +37,7 @@ export default function Clients() {
     if (!clients) return [];
     const q = search.trim().toLowerCase();
     return clients.filter(
-      (c) => !q || c.display_name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q),
+      (c) => !q || (c.display_name ?? '').toLowerCase().includes(q) || c.email.toLowerCase().includes(q),
     );
   }, [clients, search]);
 
@@ -91,14 +91,14 @@ export default function Clients() {
                     )}
                   >
                     <span className="flex min-w-0 items-center gap-3">
-                      <Avatar name={c.display_name} color={avatarColor(c.id)} />
+                      <Avatar name={c.display_name ?? c.email} color={avatarColor(c.id)} />
                       <span className="min-w-0">
-                        <span className="block truncate text-[13.5px] font-semibold">{c.display_name}</span>
+                        <span className="block truncate text-[13.5px] font-semibold">{c.display_name ?? c.email}</span>
                         <span className="block truncate text-xs text-faint">{c.email}</span>
                       </span>
                     </span>
                     <span>
-                      <StatusBadge status={c.membership.status} />
+                      <StatusBadge status={c.membership?.status ?? 'paused'} />
                     </span>
                     <span className="flex min-w-0 items-center gap-1.5">
                       {coachCount > 0 && (

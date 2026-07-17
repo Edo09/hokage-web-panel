@@ -63,25 +63,27 @@ export default function Memberships() {
     if (!clients) return [];
     return clients
       .map((c) => {
-        const m = c.membership;
-        const d = m.expires_at ? daysDiff(m.expires_at) : 9999;
-        const isExpiring = m.status === 'active' && !!m.expires_at && d >= 0 && d <= 7;
-        const isExpired = m.status === 'expired';
-        const weight = isExpired ? 0 : isExpiring ? 1 : m.status === 'paused' ? 2 : m.status === 'active' ? 3 : 4;
+        // No membership row yet = treated like "paused" for sorting/filtering.
+        const status = c.membership?.status ?? 'paused';
+        const expiresAt = c.membership?.expires_at ?? null;
+        const d = expiresAt ? daysDiff(expiresAt) : 9999;
+        const isExpiring = status === 'active' && !!expiresAt && d >= 0 && d <= 7;
+        const isExpired = status === 'expired';
+        const weight = isExpired ? 0 : isExpiring ? 1 : status === 'paused' ? 2 : status === 'active' ? 3 : 4;
         return { c, d, isExpiring, isExpired, weight };
       })
       .sort((a, b) => a.weight - b.weight || a.d - b.d);
   }, [clients]);
 
   const matches = (x: RowMeta, id: FilterId) =>
-    id === 'all' ? true : id === 'expiring' ? x.isExpiring : x.c.membership.status === id;
+    id === 'all' ? true : id === 'expiring' ? x.isExpiring : (x.c.membership?.status ?? 'paused') === id;
 
   const rows = all.filter((x) => matches(x, filter));
 
   const doRenew = async (c: ClientWithMeta) => {
     const m = await renewMembership(c.id);
     load();
-    toast.success(`Membresía de ${c.display_name.split(' ')[0]} renovada hasta ${fmtDate(m.expires_at)}`);
+    toast.success(`Membresía de ${(c.display_name ?? c.email).split(' ')[0]} renovada hasta ${fmtDate(m.expires_at)}`);
   };
 
   const doPause = async (c: ClientWithMeta) => {
@@ -94,7 +96,7 @@ export default function Memberships() {
   const doResume = async (c: ClientWithMeta) => {
     await updateMembership(c.id, { status: 'active' as MembershipStatus });
     load();
-    toast.success(`Membresía de ${c.display_name.split(' ')[0]} reactivada`);
+    toast.success(`Membresía de ${(c.display_name ?? c.email).split(' ')[0]} reactivada`);
   };
 
   return (
@@ -143,6 +145,7 @@ export default function Memberships() {
             ) : (
               rows.map(({ c, isExpiring, isExpired }) => {
                 const m = c.membership;
+                const status = m?.status ?? 'paused';
                 const exp = expiryInfo(m);
                 return (
                   <div
@@ -159,16 +162,16 @@ export default function Memberships() {
                       title="Ver membresía del cliente"
                       className="flex min-w-0 items-center gap-3 text-left transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <Avatar name={c.display_name} color={avatarColor(c.id)} />
+                      <Avatar name={c.display_name ?? c.email} color={avatarColor(c.id)} />
                       <span className="min-w-0">
-                        <span className="block truncate text-[13.5px] font-semibold">{c.display_name}</span>
+                        <span className="block truncate text-[13.5px] font-semibold">{c.display_name ?? c.email}</span>
                         <span className="block truncate text-xs text-faint">{c.email}</span>
                       </span>
                     </button>
-                    <span className="truncate text-[12.5px] text-muted-foreground">{m.plan_name}</span>
-                    <span className="whitespace-nowrap text-[12.5px] font-semibold">{money(m.price)}</span>
+                    <span className="truncate text-[12.5px] text-muted-foreground">{m?.plan_name ?? 'Sin plan'}</span>
+                    <span className="whitespace-nowrap text-[12.5px] font-semibold">{money(m?.price ?? null)}</span>
                     <span>
-                      <StatusBadge status={m.status} />
+                      <StatusBadge status={status} />
                     </span>
                     <span className={cn('whitespace-nowrap text-[12.5px]', TONE_CLASS[exp.tone])}>{exp.label}</span>
                     <span className="flex justify-end gap-1.5">
@@ -180,7 +183,7 @@ export default function Memberships() {
                       >
                         <RotateCw className="h-3.5 w-3.5" strokeWidth={1.8} />
                       </button>
-                      {m.status === 'active' && (
+                      {status === 'active' && (
                         <button
                           onClick={() => setPauseTarget(c)}
                           title="Pausar"
@@ -190,7 +193,7 @@ export default function Memberships() {
                           <Pause className="h-3.5 w-3.5" strokeWidth={1.8} />
                         </button>
                       )}
-                      {m.status === 'paused' && (
+                      {status === 'paused' && (
                         <button
                           onClick={() => void doResume(c)}
                           title="Reanudar"

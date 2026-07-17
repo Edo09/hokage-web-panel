@@ -8,7 +8,7 @@ export function Avatar({
   radiusClass = 'rounded-full',
   className,
 }: {
-  name: string;
+  name: string | null;
   color: string;
   size?: number;
   radiusClass?: string;
@@ -26,7 +26,7 @@ export function Avatar({
         fontSize: Math.round(size * 0.35),
       }}
     >
-      {initials(name)}
+      {initials(name || '?')}
     </span>
   );
 }

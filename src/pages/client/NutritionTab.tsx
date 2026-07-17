@@ -18,12 +18,12 @@ export function NutritionTab({ client, onChanged }: { client: ClientWithMeta; on
   const [saving, setSaving] = useState(false);
 
   const startEdit = () => {
-    setInput(String(client.calorie_goal));
+    setInput(String(client.calorie_goal ?? 2000));
     setEditing(true);
   };
 
   const save = async () => {
-    const v = Math.min(6000, Math.max(800, parseInt(input, 10) || client.calorie_goal));
+    const v = Math.min(6000, Math.max(800, parseInt(input, 10) || client.calorie_goal || 2000));
     setSaving(true);
     await updateClient(client.id, { calorie_goal: v });
     setSaving(false);
@@ -43,7 +43,7 @@ export function NutritionTab({ client, onChanged }: { client: ClientWithMeta; on
         {!editing ? (
           <div className="flex items-center gap-3.5">
             <span className="font-heading text-[30px] font-bold text-primary">
-              {client.calorie_goal.toLocaleString('en-US')}{' '}
+              {(client.calorie_goal ?? 0).toLocaleString('en-US')}{' '}
               <span className="text-sm font-medium text-faint">kcal</span>
             </span>
             <Button variant="outline" size="sm" onClick={startEdit}>
@@ -83,13 +83,13 @@ export function NutritionTab({ client, onChanged }: { client: ClientWithMeta; on
           <EmptyState
             icon={UtensilsCrossed}
             title="Sin plan de comidas"
-            description={`${client.display_name.split(' ')[0]} aún no tiene comidas asignadas. El editor de planes de comida llega en la próxima iteración.`}
+            description={`${(client.display_name ?? client.email).split(' ')[0]} aún no tiene comidas asignadas. El editor de planes de comida llega en la próxima iteración.`}
           />
         </Card>
       ) : (
         <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))' }}>
           {client.meals.map((m) => {
-            const tot = m.items.reduce(
+            const tot = m.meal_items.reduce(
               (a, i) => ({
                 cal: a.cal + i.calories,
                 p: a.p + i.protein_g,
@@ -116,7 +116,7 @@ export function NutritionTab({ client, onChanged }: { client: ClientWithMeta; on
                   <span className="text-right">C</span>
                   <span className="text-right">G</span>
                 </div>
-                {m.items.map((it, i) => (
+                {m.meal_items.map((it, i) => (
                   <div key={i} className={`${ITEM_GRID} items-center border-b border-border py-[7px] text-[12.5px]`}>
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{it.name}</span>

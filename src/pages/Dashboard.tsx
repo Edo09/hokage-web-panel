@@ -34,17 +34,17 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     if (!clients) return null;
-    const active = clients.filter((c) => c.membership.status === 'active');
-    const paused = clients.filter((c) => c.membership.status === 'paused');
+    const active = clients.filter((c) => c.membership?.status === 'active');
+    const paused = clients.filter((c) => c.membership?.status === 'paused');
     const expiring = active.filter((c) => {
-      if (!c.membership.expires_at) return false;
+      if (!c.membership?.expires_at) return false;
       const d = daysDiff(c.membership.expires_at);
       return d >= 0 && d <= 7;
     });
     const allLogs = clients.flatMap((c) =>
       c.logs.map((l) => ({
         clientId: c.id,
-        clientName: c.display_name,
+        clientName: c.display_name ?? c.email,
         routine: l.routine_name,
         date: new Date(l.date).getTime(),
         dateIso: l.date,
@@ -210,13 +210,13 @@ export default function Dashboard() {
                       onClick={() => navigate(`/clients/${c.id}?tab=membership`)}
                       className="flex w-full items-center gap-[11px] rounded-xl border border-border px-3 py-2.5 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <Avatar name={c.display_name} color={avatarColor(c.id)} size={32} />
+                      <Avatar name={c.display_name ?? c.email} color={avatarColor(c.id)} size={32} />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold">{c.display_name}</span>
-                        <span className="block text-[11.5px] text-faint">{c.membership.plan_name}</span>
+                        <span className="block truncate text-[13px] font-semibold">{c.display_name ?? c.email}</span>
+                        <span className="block text-[11.5px] text-faint">{c.membership!.plan_name}</span>
                       </span>
                       <span className="flex-none rounded-full bg-warning/15 px-2 py-1 text-[11px] font-bold text-warning">
-                        {daysDiff(c.membership.expires_at!)} d
+                        {daysDiff(c.membership!.expires_at!)} d
                       </span>
                     </button>
                   ))}

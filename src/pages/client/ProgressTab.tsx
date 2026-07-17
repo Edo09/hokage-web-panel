@@ -16,7 +16,7 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
       return { label: i === 5 ? 'Esta' : `-${5 - i}`, value, current: i === 5 };
     });
     const total = client.logs.length;
-    const avg = total ? Math.round(client.logs.reduce((a, l) => a + l.duration_minutes, 0) / total) : 0;
+    const avg = total ? Math.round(client.logs.reduce((a, l) => a + (l.duration_minutes ?? 0), 0) / total) : 0;
     const recent = [...client.logs]
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
       .slice(0, 10);
@@ -54,7 +54,7 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
             <EmptyState
               icon={Dumbbell}
               title="Aún sin entrenos"
-              description={`Cuando ${client.display_name.split(' ')[0]} registre entrenos en la app, aparecerán aquí.`}
+              description={`Cuando ${(client.display_name ?? client.email).split(' ')[0]} registre entrenos en la app, aparecerán aquí.`}
               className="py-9"
             />
           ) : (
@@ -71,7 +71,7 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[13px] font-semibold">{lg.routine_name}</span>
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                        {lg.duration_minutes} min
+                        {lg.duration_minutes ?? '—'} min
                       </span>
                     </div>
                     {lg.notes && <p className="mt-0.5 text-xs text-faint">{lg.notes}</p>}
