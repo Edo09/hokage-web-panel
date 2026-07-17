@@ -1,75 +1,46 @@
-# React + TypeScript + Vite
+# Hokage Coaching — Admin Panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Desktop admin panel for **Hokage Coaching** (fitness & nutrition coaching). React + Vite + TypeScript + Tailwind CSS + shadcn/ui-style components + recharts + React Router. UI in Spanish, prices in DOP. Dark mode is the default/signature look; light mode included.
 
-Currently, two official plugins are available:
+## Run it
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Then open the printed URL. Any email/password signs you in (auth is a placeholder for Supabase Auth).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+`npm run build` type-checks and produces a production build in `dist/`.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## What's inside
+
+- **Login** (`/login`) — branded, coach-only.
+- **Panel** (`/`) — KPI tiles, clients trend (recharts area), workouts/week (bars), recent activity, expiring-soon list, quick actions.
+- **Clientes** (`/clients`) — searchable table, skeletons, empty state, add-client modal with success state.
+- **Cliente** (`/clients/:id?tab=…`) — header + 5 tabs: Resumen, Rutinas (routine builder assigns COACH routines), Nutrición (editable calorie goal + meal cards with macros), Progreso (frequency chart + workout timeline), Membresía (status card + renew/pause + edit form).
+- **Membresías** (`/memberships`) — filter pills, urgency-sorted table (expired/expiring highlighted), renew / pause (confirm) / resume quick actions.
+- **Ajustes** (`/settings`) — coach display name + WhatsApp (international digits) with a live mobile-app preview; updates the topbar.
+
+## Swap in Supabase later
+
+The UI reads/writes data **only** through `src/services/clients.ts` (typed async functions with artificial latency so skeletons show). Replace the bodies of those functions with Supabase queries and delete `src/services/mockData.ts` — no UI changes needed. Types in `src/types.ts` mirror the intended tables (`profiles`, `routines` + `exercises`, `meals` + `items`, `workout_logs`, `memberships`).
+
+Auth: `src/hooks/useAuth.tsx` is a sessionStorage flag — swap for `supabase.auth` and keep `RequireAuth`.
+
+## Structure
 
 ```
+src/
+  types.ts                 # Domain types (future Supabase tables)
+  services/                # Data layer — ONLY entry point for data
+  hooks/                   # useTheme (dark/light + localStorage), useAuth, useCoach
+  components/
+    ui/                    # shadcn-style primitives (button, dialog, tabs, select…)
+    layout/                # AppShell, Sidebar (collapsible), TopBar
+    shared/                # StatTile, StatusBadge/OwnerBadge, Avatar, charts,
+                           # EmptyState, TableSkeleton, AddClientDialog
+  pages/                   # One file per route; client/ holds the 5 detail tabs
+```
+
+Design reference: the interactive prototype lives in the `design_handoff_hokage_admin/` package (same repo/project) — open `design/Hokage Admin.dc.html` in a browser.
