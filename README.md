@@ -35,6 +35,8 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service role key>
 
 Until this is deployed, "Añadir cliente" will fail.
 
+The function generates a **one-time temporary password** and returns it to the panel, which shows it once (copy button) for the coach to share with the client over WhatsApp. The client signs in with it and changes it in the app's **Ajustes → Cambiar contraseña**. No email delivery is involved anywhere in this flow.
+
 ## What's inside
 
 - **Login** (`/login`) — branded, coach-only, real Supabase Auth.

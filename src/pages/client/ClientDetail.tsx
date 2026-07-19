@@ -38,8 +38,15 @@ export default function ClientDetail() {
     void getClient(id).then((c) => setClient(c ?? 'missing'));
   }, [id]);
 
-  useEffect(() => {
+  // Back to the skeleton when navigating to a different client. Render-phase
+  // state adjustment (not a sync setState in the effect below — hooks lint).
+  const [viewedId, setViewedId] = useState(id);
+  if (id !== viewedId) {
+    setViewedId(id);
     setClient(null);
+  }
+
+  useEffect(() => {
     reload();
   }, [reload]);
 

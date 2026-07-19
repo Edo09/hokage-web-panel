@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Plus, X } from 'lucide-react';
-import type { ClientWithMeta, Exercise } from '@/types';
-import { assignRoutine } from '@/services/clients';
+import { Pencil, Plus, Trash2, X } from 'lucide-react';
+import type { ClientWithMeta, Exercise, RoutineWithExercises } from '@/types';
+import { assignRoutine, deleteRoutine, updateRoutine } from '@/services/clients';
 import { listExercises } from '@/services/exercises';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { OwnerBadge } from '@/components/shared/StatusBadge';
 
 /** Stored value is lowercase English ('monday'..'sunday') — matches the
@@ -39,25 +49,40 @@ interface BuilderRow {
 
 const emptyRow = (): BuilderRow => ({ exerciseName: '', sets: '4', reps: '10', weight: '', rest: '90' });
 
+const rowsFrom = (routine: RoutineWithExercises): BuilderRow[] =>
+  routine.routine_exercises.length === 0
+    ? [emptyRow()]
+    : routine.routine_exercises.map((ex) => ({
+        exerciseName: ex.exercise?.name ?? '',
+        sets: String(ex.sets),
+        reps: String(ex.reps),
+        weight: ex.weight_kg != null ? String(ex.weight_kg) : '',
+        rest: String(ex.rest_seconds),
+      }));
+
 const ROW_GRID = 'grid gap-2 [grid-template-columns:2fr_64px_64px_84px_84px_36px]';
 
-/** RoutineBuilder — repeatable exercise rows, assigns a COACH routine.
- *  Every exercise must resolve to a catalog entry (routine_exercises.
- *  exercise_id is a required FK — no more free-text names). */
+/** RoutineBuilder — repeatable exercise rows. Creates a COACH routine, or
+ *  rewrites an existing one when `initial` is set. Every exercise must
+ *  resolve to a catalog entry (routine_exercises.exercise_id is a required
+ *  FK — no free-text names). */
 function RoutineBuilder({
   client,
+  initial,
   onClose,
-  onAssigned,
+  onSaved,
 }: {
   client: ClientWithMeta;
+  /** When set, the builder edits this routine instead of creating one. */
+  initial?: RoutineWithExercises;
   onClose: () => void;
-  onAssigned: () => void;
+  onSaved: () => void;
 }) {
   const [catalog, setCatalog] = useState<Exercise[] | null>(null);
-  const [name, setName] = useState('');
-  const [desc, setDesc] = useState('');
-  const [day, setDay] = useState('monday');
-  const [rows, setRows] = useState<BuilderRow[]>([emptyRow()]);
+  const [name, setName] = useState(initial?.name ?? '');
+  const [desc, setDesc] = useState(initial?.description ?? '');
+  const [day, setDay] = useState(initial?.day_of_week ?? 'monday');
+  const [rows, setRows] = useState<BuilderRow[]>(initial ? rowsFrom(initial) : [emptyRow()]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -96,25 +121,32 @@ function RoutineBuilder({
       resolved.push({ row, exercise: match });
     }
 
+    const payload = {
+      name: n,
+      description: desc.trim() || 'Rutina asignada por el coach.',
+      day_of_week: day,
+      exercises: resolved.map(({ row, exercise }, j) => ({
+        exercise_id: exercise.id,
+        sets: +row.sets || 3,
+        reps: +row.reps || 10,
+        weight_kg: +row.weight > 0 ? +row.weight : null,
+        rest_seconds: +row.rest || 60,
+        sort_order: j,
+      })),
+    };
+
     setSaving(true);
     try {
-      await assignRoutine(client.id, {
-        name: n,
-        description: desc.trim() || 'Rutina asignada por el coach.',
-        day_of_week: day,
-        exercises: resolved.map(({ row, exercise }, j) => ({
-          exercise_id: exercise.id,
-          sets: +row.sets || 3,
-          reps: +row.reps || 10,
-          weight_kg: +row.weight > 0 ? +row.weight : null,
-          rest_seconds: +row.rest || 60,
-          sort_order: j,
-        })),
-      });
-      onAssigned();
-      toast.success(`Rutina asignada a ${client.display_name?.split(' ')[0] ?? 'el cliente'}`);
+      if (initial) {
+        await updateRoutine(initial.id, client.id, payload);
+        toast.success('Rutina actualizada');
+      } else {
+        await assignRoutine(client.id, payload);
+        toast.success(`Rutina asignada a ${client.display_name?.split(' ')[0] ?? 'el cliente'}`);
+      }
+      onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo asignar la rutina');
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la rutina');
     } finally {
       setSaving(false);
     }
@@ -122,7 +154,9 @@ function RoutineBuilder({
 
   return (
     <Card className="animate-fade-up border-[1.5px] border-primary p-[22px]">
-      <div className="mb-4 font-heading text-[15px] font-semibold">Nueva rutina asignada</div>
+      <div className="mb-4 font-heading text-[15px] font-semibold">
+        {initial ? `Editar rutina — ${initial.name}` : 'Nueva rutina asignada'}
+      </div>
 
       {/* Shared datalist so every row's exercise input autocompletes against
           the real catalog — resolved back to exercise_id at submit. */}
@@ -244,7 +278,11 @@ function RoutineBuilder({
           Cancelar
         </Button>
         <Button onClick={() => void submit()} disabled={saving || catalog === null}>
-          {saving ? 'Asignando…' : `Asignar a ${client.display_name?.split(' ')[0] ?? 'el cliente'}`}
+          {saving
+            ? 'Guardando…'
+            : initial
+              ? 'Guardar cambios'
+              : `Asignar a ${client.display_name?.split(' ')[0] ?? 'el cliente'}`}
         </Button>
       </div>
     </Card>
@@ -255,6 +293,29 @@ const EX_GRID = 'grid gap-1.5 [grid-template-columns:2fr_52px_52px_62px_62px]';
 
 export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onChanged: () => void }) {
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [editing, setEditing] = useState<RoutineWithExercises | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<RoutineWithExercises | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const closeBuilder = () => {
+    setBuilderOpen(false);
+    setEditing(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
+    try {
+      await deleteRoutine(pendingDelete.id);
+      toast.success(`"${pendingDelete.name}" eliminada`);
+      setPendingDelete(null);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la rutina');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -262,18 +323,25 @@ export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onC
         <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
           {client.routines.length} rutinas · las marcadas <OwnerBadge assignedBy="coach" /> son tuyas
         </div>
-        <Button onClick={() => setBuilderOpen(true)}>
+        <Button
+          onClick={() => {
+            setEditing(null);
+            setBuilderOpen(true);
+          }}
+        >
           <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
           Asignar rutina
         </Button>
       </div>
 
-      {builderOpen && (
+      {(builderOpen || editing) && (
         <RoutineBuilder
+          key={editing?.id ?? 'new'}
           client={client}
-          onClose={() => setBuilderOpen(false)}
-          onAssigned={() => {
-            setBuilderOpen(false);
+          initial={editing ?? undefined}
+          onClose={closeBuilder}
+          onSaved={() => {
+            closeBuilder();
             onChanged();
           }}
         />
@@ -288,6 +356,30 @@ export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onC
               <span className="flex-none rounded-full bg-muted px-2.5 py-[3px] text-[11px] font-semibold text-muted-foreground">
                 {dayLabel(rt.day_of_week)}
               </span>
+              {/* Only coach-assigned routines are editable here — the client's
+                  own routines belong to them. */}
+              {rt.assigned_by != null && (
+                <span className="flex flex-none items-center gap-1">
+                  <button
+                    onClick={() => {
+                      setBuilderOpen(false);
+                      setEditing(rt);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    aria-label={`Editar ${rt.name}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-faint transition-colors hover:border-secondary hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Pencil className="h-3 w-3" strokeWidth={2.25} />
+                  </button>
+                  <button
+                    onClick={() => setPendingDelete(rt)}
+                    aria-label={`Eliminar ${rt.name}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-faint transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Trash2 className="h-3 w-3" strokeWidth={2.25} />
+                  </button>
+                </span>
+              )}
             </div>
             <p className="mb-3 mt-1.5 text-[12.5px] text-faint">{rt.description}</p>
             <div className={`${EX_GRID} border-b border-border pb-1.5 text-[10.5px] font-bold uppercase tracking-wider text-faint`}>
@@ -309,6 +401,24 @@ export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onC
           </Card>
         ))}
       </div>
+
+      <AlertDialog open={pendingDelete != null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se quitará de la app del cliente junto con todos sus ejercicios. Esta acción no se
+              puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deleting} onClick={() => void confirmDelete()}>
+              {deleting ? 'Eliminando…' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

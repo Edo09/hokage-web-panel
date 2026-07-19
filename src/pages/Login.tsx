@@ -40,11 +40,11 @@ export default function Login() {
         <div className="mb-6 flex flex-col items-center gap-3">
           <img
             src="/logo.jpg"
-            alt="Hokage Coaching"
+            alt="The Hokage Coaching"
             className="h-[76px] w-[76px] rounded-[20px] border border-border object-cover"
           />
           <div className="text-center">
-            <div className="font-heading text-xl font-bold tracking-wide">Hokage Coaching</div>
+            <div className="font-heading text-xl font-bold tracking-wide">The Hokage Coaching</div>
             <div className="mt-0.5 text-[13px] text-muted-foreground">Panel de administración</div>
           </div>
         </div>

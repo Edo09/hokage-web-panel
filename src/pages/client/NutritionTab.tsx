@@ -4,7 +4,7 @@ import { UtensilsCrossed } from 'lucide-react';
 import type { ClientWithMeta } from '@/types';
 import { updateClient } from '@/services/clients';
 import { MEAL_TYPE_LABELS } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { OwnerBadge } from '@/components/shared/StatusBadge';

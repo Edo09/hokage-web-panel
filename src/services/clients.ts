@@ -197,20 +197,33 @@ export async function getClientTrend(): Promise<number[]> {
 
 /** Creates the auth account via the create-client Edge Function (needs the
  *  service-role key, which never touches the browser — see
- *  supabase/functions/create-client). Requires that function deployed. */
-export async function createClient(input: { display_name: string; email: string }): Promise<ClientWithMeta> {
-  const { data, error } = await supabase.functions.invoke<{ user_id?: string; error?: string }>('create-client', {
+ *  supabase/functions/create-client). Requires that function deployed.
+ *
+ *  Returns the one-time temporary password the coach must hand to the client
+ *  (WhatsApp); it is NOT retrievable again. The client signs in with it and
+ *  changes it from the app's Ajustes screen. */
+export async function createClient(input: {
+  display_name: string;
+  email: string;
+}): Promise<{ client: ClientWithMeta; tempPassword: string }> {
+  const { data, error } = await supabase.functions.invoke<{
+    user_id?: string;
+    temp_password?: string;
+    error?: string;
+  }>('create-client', {
     body: { email: input.email, display_name: input.display_name },
   });
   if (error) throw new Error(error.message);
-  if (!data?.user_id) throw new Error(data?.error ?? 'No se pudo crear el cliente.');
+  if (!data?.user_id || !data.temp_password) {
+    throw new Error(data?.error ?? 'No se pudo crear el cliente.');
+  }
 
   // handle_new_user + the email-sync trigger run in the same transaction as
   // the Edge Function's admin.createUser call, so the profile should already
   // exist — but allow one short retry in case of read-replica lag.
   const client = (await getClient(data.user_id)) ?? (await wait(500).then(() => getClient(data.user_id!)));
   if (!client) throw new Error('Cliente creado, pero tardó en aparecer. Refresca la lista.');
-  return client;
+  return { client, tempPassword: data.temp_password };
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -239,6 +252,20 @@ export interface AssignRoutineInput {
   exercises: AssignRoutineExerciseInput[];
 }
 
+function exerciseRows(routineId: string, clientId: string, exercises: AssignRoutineExerciseInput[]) {
+  return exercises.map((ex) => ({
+    routine_id: routineId,
+    user_id: clientId,
+    exercise_id: ex.exercise_id,
+    sets: ex.sets,
+    reps: ex.reps,
+    weight_kg: ex.weight_kg,
+    rest_seconds: ex.rest_seconds,
+    sort_order: ex.sort_order,
+    notes: ex.notes ?? null,
+  }));
+}
+
 export async function assignRoutine(clientId: string, input: AssignRoutineInput): Promise<void> {
   const coachId = await currentCoachId();
   const { data: routine, error } = await supabase
@@ -256,21 +283,51 @@ export async function assignRoutine(clientId: string, input: AssignRoutineInput)
   if (error) throw error;
 
   if (input.exercises.length > 0) {
-    const { error: exErr } = await supabase.from('routine_exercises').insert(
-      input.exercises.map((ex) => ({
-        routine_id: routine.id,
-        user_id: clientId,
-        exercise_id: ex.exercise_id,
-        sets: ex.sets,
-        reps: ex.reps,
-        weight_kg: ex.weight_kg,
-        rest_seconds: ex.rest_seconds,
-        sort_order: ex.sort_order,
-        notes: ex.notes ?? null,
-      })),
-    );
+    const { error: exErr } = await supabase
+      .from('routine_exercises')
+      .insert(exerciseRows(routine.id, clientId, input.exercises));
+    if (exErr) {
+      // Two inserts, no transaction from the browser — don't leave the client
+      // staring at an empty coach routine if the second one failed.
+      await supabase.from('routines').delete().eq('id', routine.id);
+      throw exErr;
+    }
+  }
+}
+
+/** Rewrites a coach-assigned routine: updates the header row and replaces its
+ *  exercise list wholesale (delete + insert — routine_exercises has no
+ *  identity worth preserving; the app orders by sort_order). */
+export async function updateRoutine(
+  routineId: string,
+  clientId: string,
+  input: AssignRoutineInput,
+): Promise<void> {
+  const { error } = await supabase
+    .from('routines')
+    .update({
+      name: input.name,
+      description: input.description,
+      day_of_week: input.day_of_week,
+    })
+    .eq('id', routineId);
+  if (error) throw error;
+
+  const { error: delErr } = await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
+  if (delErr) throw delErr;
+
+  if (input.exercises.length > 0) {
+    const { error: exErr } = await supabase
+      .from('routine_exercises')
+      .insert(exerciseRows(routineId, clientId, input.exercises));
     if (exErr) throw exErr;
   }
+}
+
+/** Removes an assigned routine; routine_exercises rows cascade (FK). */
+export async function deleteRoutine(routineId: string): Promise<void> {
+  const { error } = await supabase.from('routines').delete().eq('id', routineId);
+  if (error) throw error;
 }
 
 export async function updateMembership(clientId: string, patch: Partial<Membership>): Promise<void> {

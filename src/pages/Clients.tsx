@@ -27,11 +27,16 @@ export default function Clients() {
   const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
 
+  // Reset + refetch — for event handlers (add-client, retry). The mount
+  // effect skips the sync reset: `clients` already starts null, and the
+  // hooks lint forbids synchronous setState inside effects.
   const load = () => {
     setClients(null);
     void listClients().then(setClients);
   };
-  useEffect(load, []);
+  useEffect(() => {
+    void listClients().then(setClients);
+  }, []);
 
   const rows = useMemo(() => {
     if (!clients) return [];

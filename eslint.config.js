@@ -12,11 +12,19 @@ export default defineConfig([
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
-      reactHooks.configs.flat.recommended,
+      reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
     ],
     languageOptions: {
       globals: globals.browser,
     },
+  },
+  {
+    // Deliberate mixed exports: shadcn primitives export their cva variants
+    // (button.tsx → buttonVariants) and each hook file pairs a provider
+    // component with its hook (useAuth/useCoach/useTheme). The rule only
+    // affects HMR granularity, not correctness.
+    files: ['src/components/ui/**', 'src/hooks/**'],
+    rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])

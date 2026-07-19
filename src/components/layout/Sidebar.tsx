@@ -23,12 +23,26 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         collapsed ? 'w-[74px]' : 'w-[232px]',
       )}
     >
-      <div className="mb-3.5 flex items-center gap-2.5 border-b border-border px-2 pb-[18px] pt-1">
-        <img src="/logo.jpg" alt="Hokage" className="h-[38px] w-[38px] flex-none rounded-[11px] border border-border object-cover" />
+      <div
+        className={cn(
+          'mb-3.5 flex items-center gap-3 border-b border-border pb-[18px] pt-1',
+          // px-0 + centered when collapsed: the 74px rail minus paddings can't
+          // fit the logo otherwise (preflight's img max-width would squash it)
+          collapsed ? 'justify-center px-0' : 'px-2',
+        )}
+      >
+        <img
+          src="/logo.jpg"
+          alt="The Hokage"
+          className={cn(
+            'max-w-none flex-none rounded-xl border border-border object-cover',
+            collapsed ? 'h-11 w-11' : 'h-14 w-14',
+          )}
+        />
         {!collapsed && (
           <div className="min-w-0">
-            <div className="whitespace-nowrap font-heading text-[15px] font-bold tracking-wide">HOKAGE</div>
-            <div className="whitespace-nowrap text-[11px] text-muted-foreground">Coaching</div>
+            <div className="whitespace-nowrap font-heading text-[19px] font-bold tracking-wide">THE HOKAGE</div>
+            <div className="whitespace-nowrap text-[12px] text-muted-foreground">Coaching</div>
           </div>
         )}
       </div>
