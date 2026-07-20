@@ -1,5 +1,7 @@
 import type { ClientWithMeta } from '@/types';
 import { cn, daysDiff, expiryInfo, money } from '@/lib/utils';
+import { useWeightUnit } from '@/hooks/useWeightUnit';
+import { formatWeight } from '@/lib/weightUnit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -20,6 +22,9 @@ function Metric({ label, value }: { label: string; value: string | number }) {
 }
 
 export function OverviewTab({ client, onGoTab }: { client: ClientWithMeta; onGoTab: (tab: string) => void }) {
+  const { unit } = useWeightUnit();
+  // BMI is always computed from the stored kg value — only the DISPLAYED
+  // weight below converts to the coach's preferred unit.
   const bmi =
     client.height_cm && client.weight_kg
       ? (client.weight_kg / Math.pow(client.height_cm / 100, 2)).toFixed(1)
@@ -36,7 +41,7 @@ export function OverviewTab({ client, onGoTab }: { client: ClientWithMeta; onGoT
           <CardTitle>Métricas</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-3">
-          <Metric label="Peso actual" value={`${client.weight_kg ?? '—'} kg`} />
+          <Metric label="Peso actual" value={formatWeight(client.weight_kg, unit)} />
           <Metric label="IMC" value={bmi} />
           <Metric label="Entrenos (30 d)" value={logs30} />
           <Metric label="Rutinas asignadas" value={coachRoutines} />

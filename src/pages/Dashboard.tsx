@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CreditCard, Dumbbell, Plus, Users } from 'lucide-react';
-import type { ClientWithMeta } from '@/types';
-import { getClientTrend, listClients } from '@/services/clients';
+import { getClientTrend, listClientSummaries } from '@/services/clients';
+import { getRecentActivity } from '@/services/tracking';
+import { qk } from '@/lib/queryClient';
 import { avatarColor, daysDiff, monthAbbr, relTime } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,31 +24,21 @@ interface FeedItem {
 }
 
 export default function Dashboard() {
-  const [clients, setClients] = useState<ClientWithMeta[] | null>(null);
-  const [trend, setTrend] = useState<number[]>([]);
-  const [error, setError] = useState(false);
+  const clientsQuery = useQuery({ queryKey: qk.clientSummaries, queryFn: listClientSummaries });
+  const trendQuery = useQuery({ queryKey: qk.clientTrend, queryFn: getClientTrend });
+  const activityQuery = useQuery({ queryKey: qk.recentActivity, queryFn: () => getRecentActivity() });
+  const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
 
-  const load = () => {
-    setError(false);
-    void listClients()
-      .then(setClients)
-      .catch(() => setError(true));
-    void getClientTrend()
-      .then(setTrend)
-      .catch(() => setError(true));
+  const clients = clientsQuery.data;
+  const trend = trendQuery.data ?? [];
+  const isError = clientsQuery.isError || trendQuery.isError || activityQuery.isError;
+
+  const onCreated = () => {
+    void queryClient.invalidateQueries({ queryKey: qk.clientSummaries });
+    void queryClient.invalidateQueries({ queryKey: qk.clientTrend });
   };
-  // Inline the fetches on mount (not load()) — load() sets state synchronously,
-  // which the hooks lint forbids inside an effect. load() is for retry only.
-  useEffect(() => {
-    void listClients()
-      .then(setClients)
-      .catch(() => setError(true));
-    void getClientTrend()
-      .then(setTrend)
-      .catch(() => setError(true));
-  }, []);
 
   // Month ticks under the 12-week trend chart. Mirrors getClientTrend's
   // Monday-based window; renders each distinct month once (was hardcoded).
@@ -105,7 +97,7 @@ export default function Dashboard() {
     return { active, paused, expiring, weekLogs, weekBars, feed };
   }, [clients]);
 
-  if (error) {
+  if (isError) {
     return (
       <Card className="animate-fade-up">
         <EmptyState
@@ -113,7 +105,14 @@ export default function Dashboard() {
           title="No se pudo cargar el panel"
           description="Hubo un problema al cargar los datos. Revisa tu conexión e inténtalo de nuevo."
         >
-          <Button variant="outline" onClick={load} className="mt-1">
+          <Button
+            variant="outline"
+            onClick={() => {
+              void clientsQuery.refetch();
+              void trendQuery.refetch();
+            }}
+            className="mt-1"
+          >
             Reintentar
           </Button>
         </EmptyState>
@@ -273,7 +272,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <AddClientDialog open={addOpen} onOpenChange={setAddOpen} onCreated={load} />
+      <AddClientDialog open={addOpen} onOpenChange={setAddOpen} onCreated={onCreated} />
     </div>
   );
 }

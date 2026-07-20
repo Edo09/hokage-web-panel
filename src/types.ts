@@ -146,6 +146,153 @@ export interface Membership {
   updated_at: string;
 }
 
+/* ---------------- Coach Programs (multi-week periodized training) ----------------
+ * Mirrors supabase/migrations/20260717120000_coach_programs.sql. A program is a
+ * block: header → days (the split) → exercises (base prescription) + a GLOBAL
+ * weekly periodization table that modulates RIR/%load across weeks. */
+
+export type ProgramStatus = 'active' | 'completed' | 'archived';
+export type LoadQualitative = 'light' | 'moderate' | 'heavy';
+
+export interface Program {
+  id: string;
+  user_id: string;
+  assigned_by: string | null;
+  source: 'coach';
+  name: string;
+  description: string | null;
+  focus: string | null;
+  duration_weeks: number;
+  start_date: string; // ISO date
+  status: ProgramStatus;
+  progression_rule: string | null;
+  tempo_default: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProgramExercise {
+  id: string;
+  program_day_id: string;
+  exercise_id: string | null;
+  custom_name: string | null;
+  sets: number;
+  rep_min: number | null;
+  rep_max: number | null;
+  is_unilateral: boolean;
+  rir_min: number | null;
+  rir_max: number | null;
+  load_pct_1rm: number | null;
+  load_qualitative: LoadQualitative | null;
+  tempo: string | null;
+  rest_seconds: number | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  exercise?: Exercise | null;
+}
+
+export interface ProgramDay {
+  id: string;
+  program_id: string;
+  day_index: number;
+  label: string | null;
+  weekday: string | null; // 'monday'..'sunday'
+  sort_order: number;
+  created_at: string;
+  program_exercises: ProgramExercise[];
+}
+
+export interface ProgramWeek {
+  id: string;
+  program_id: string;
+  week_number: number;
+  label: string | null;
+  rir_min: number | null;
+  rir_max: number | null;
+  load_pct_min: number | null;
+  load_pct_max: number | null;
+  is_deload: boolean;
+  sets_override: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ProgramWithDetail extends Program {
+  program_days: ProgramDay[];
+  program_weeks: ProgramWeek[];
+}
+
+/** A client's actual logged set (their execution of a prescribed set). */
+export interface WorkoutSetLog {
+  id: string;
+  user_id: string;
+  program_exercise_id: string;
+  week_number: number;
+  date: string; // ISO date
+  set_index: number;
+  weight_kg: number | null;
+  reps: number | null;
+  rir: number | null;
+  created_at: string;
+}
+
+/** Shared join shape: a prescription with enough context to label it in the
+ *  coach tracking view (exercise name, program, weekly targets). */
+export interface ProgramExerciseContext {
+  id: string;
+  sets: number;
+  rep_min: number | null;
+  rep_max: number | null;
+  is_unilateral: boolean;
+  rir_min: number | null;
+  rir_max: number | null;
+  load_pct_1rm: number | null;
+  custom_name: string | null;
+  exercise: { name: string } | null;
+  program_day: {
+    label: string | null;
+    program: { id: string; name: string } | null;
+  } | null;
+}
+
+/** A set log joined to the prescription it was logged against (for the coach
+ *  tracking view: actuals vs plan). */
+export interface SetLogWithContext extends WorkoutSetLog {
+  program_exercise: ProgramExerciseContext | null;
+}
+
+/** "Client marked this exercise done for this week" — independent of set
+ *  logging (a client can check a day done without entering weight/reps). */
+export interface ExerciseCompletion {
+  id: string;
+  user_id: string;
+  program_exercise_id: string;
+  week_number: number;
+  completed_at: string;
+  created_at: string;
+}
+
+export interface ExerciseCompletionWithContext extends ExerciseCompletion {
+  program_exercise: ProgramExerciseContext | null;
+}
+
+/** One line of cross-client activity for the dashboard feed — a client
+ *  finished a legacy routine, checked a program exercise done, or logged a
+ *  set. Built by services/tracking.ts#getRecentActivity from
+ *  program_exercise_completions + workout_set_logs (grouped per session) so
+ *  Dashboard doesn't need to know the underlying tables. */
+export interface ActivityItem {
+  clientId: string;
+  clientName: string;
+  kind: 'completion' | 'set_log';
+  exerciseName: string;
+  /** ISO instant — completions use the real completed_at timestamp; grouped
+   *  set logs use the log date at local midnight (day precision only). */
+  at: string;
+}
+
 export interface CoachProfile {
   display_name: string;
   avatar_url: string | null;
@@ -153,10 +300,22 @@ export interface CoachProfile {
   whatsapp: string;
 }
 
-/** Convenience aggregate used by list/detail screens. */
+/** Full aggregate used by the client DETAIL screen (all tabs read it). */
 export interface ClientWithMeta extends Client {
   membership: Membership | null;
   routines: RoutineWithExercises[];
   meals: MealWithItems[];
   logs: WorkoutLog[];
+}
+
+/** Lightweight aggregate for the LIST screens (Clients, Dashboard, Memberships).
+ *  Deliberately omits routine exercises, meals, and full log rows — the lists
+ *  only need routine counts and recent activity, so pulling the full nested
+ *  graph for every client was pure waste. */
+export interface ClientSummary extends Client {
+  membership: Membership | null;
+  coachRoutineCount: number;
+  selfRoutineCount: number;
+  /** Recent workout logs, date-DESC, projected to the fields the lists render. */
+  logs: { date: string; routine_name: string }[];
 }

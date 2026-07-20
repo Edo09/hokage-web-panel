@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Phone } from 'lucide-react';
+import { Phone, Scale } from 'lucide-react';
 import { useCoach } from '@/hooks/useCoach';
-import { initials } from '@/lib/utils';
+import { useWeightUnit } from '@/hooks/useWeightUnit';
+import { cn, initials } from '@/lib/utils';
+import type { WeightUnit } from '@/lib/weightUnit';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
+  { value: 'kg', label: 'Kilogramos (kg)' },
+  { value: 'lb', label: 'Libras (lb)' },
+];
+
 export default function Settings() {
   const { coach, save } = useCoach();
+  const { unit, setUnit } = useWeightUnit();
   const [name, setName] = useState(coach.display_name);
   const [whatsapp, setWhatsapp] = useState(coach.whatsapp);
   const [saving, setSaving] = useState(false);
@@ -86,6 +94,47 @@ export default function Settings() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Unidad de peso</CardTitle>
+          <CardDescription>
+            Cómo se muestran e ingresan los pesos en este panel (rutinas, seguimiento, datos del cliente). Los
+            datos siempre se guardan en kilogramos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-secondary/10 text-secondary dark:bg-secondary/15"
+            >
+              <Scale className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </span>
+            <div
+              role="radiogroup"
+              aria-label="Unidad de peso"
+              className="flex flex-1 gap-1.5 rounded-xl border border-border bg-muted p-1"
+            >
+              {WEIGHT_UNITS.map((u) => (
+                <button
+                  key={u.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={unit === u.value}
+                  onClick={() => setUnit(u.value)}
+                  className={cn(
+                    'flex-1 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    unit === u.value ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {u.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

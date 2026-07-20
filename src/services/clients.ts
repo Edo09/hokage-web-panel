@@ -12,6 +12,7 @@
 import { supabase } from '@/lib/supabaseClient';
 import type {
   Client,
+  ClientSummary,
   ClientWithMeta,
   CoachProfile,
   Membership,
@@ -108,24 +109,69 @@ function assemble(
 
 /* ---------------- reads ---------------- */
 
-export async function listClients(): Promise<ClientWithMeta[]> {
+/* --- lightweight list fetchers (counts + recent activity, no nested graph) --- */
+
+async function fetchRoutineFlags(
+  userIds: string[],
+): Promise<Record<string, { coach: number; self: number }>> {
+  if (!userIds.length) return {};
+  // Two columns, no exercise/catalog embed — the lists only need the split.
+  const { data, error } = await supabase.from('routines').select('user_id, assigned_by').in('user_id', userIds);
+  if (error) throw error;
+  const by: Record<string, { coach: number; self: number }> = {};
+  for (const r of (data ?? []) as { user_id: string; assigned_by: string | null }[]) {
+    const f = (by[r.user_id] ??= { coach: 0, self: 0 });
+    if (r.assigned_by) f.coach += 1;
+    else f.self += 1;
+  }
+  return by;
+}
+
+async function fetchRecentLogs(
+  userIds: string[],
+): Promise<Record<string, { date: string; routine_name: string }[]>> {
+  if (!userIds.length) return {};
+  // Three columns instead of full rows; still date-DESC so [0] is the newest.
+  const { data, error } = await supabase
+    .from('workout_logs')
+    .select('user_id, date, routine_name')
+    .in('user_id', userIds)
+    .order('date', { ascending: false });
+  if (error) throw error;
+  const by: Record<string, { date: string; routine_name: string }[]> = {};
+  for (const l of (data ?? []) as { user_id: string; date: string; routine_name: string }[]) {
+    (by[l.user_id] ??= []).push({ date: l.date, routine_name: l.routine_name });
+  }
+  return by;
+}
+
+/** List-screen read: every client with membership, routine counts, and recent
+ *  logs — but NONE of the routine exercises, meals, or meal items the old
+ *  listClients pulled for every row. The detail screen (getClient) still loads
+ *  the full graph on demand. */
+export async function listClientSummaries(): Promise<ClientSummary[]> {
   const { data: profiles, error } = await supabase
     .from('profiles')
-    // Disambiguate the embed: memberships has TWO FKs to profiles
-    // (client_id and coach_id) — `!client_id` picks the right one.
     .select('*, membership:memberships!client_id(*)')
     .eq('role', 'user')
     .order('display_name', { ascending: true, nullsFirst: false });
   if (error) throw error;
 
   const ids = (profiles ?? []).map((p) => p.id as string);
-  const [routinesByUser, mealsByUser, logsByUser] = await Promise.all([
-    fetchRoutinesFor(ids),
-    fetchMealsFor(ids),
-    fetchLogsFor(ids),
-  ]);
+  const [routineFlags, recentLogs] = await Promise.all([fetchRoutineFlags(ids), fetchRecentLogs(ids)]);
 
-  return (profiles ?? []).map((p) => assemble(p, routinesByUser, mealsByUser, logsByUser));
+  return (profiles ?? []).map((p) => {
+    const id = p.id as string;
+    const membershipEmbed = (p as Record<string, unknown>).membership as Membership | Membership[] | null;
+    const flags = routineFlags[id] ?? { coach: 0, self: 0 };
+    return {
+      ...(p as unknown as Client),
+      membership: Array.isArray(membershipEmbed) ? (membershipEmbed[0] ?? null) : (membershipEmbed ?? null),
+      coachRoutineCount: flags.coach,
+      selfRoutineCount: flags.self,
+      logs: recentLogs[id] ?? [],
+    };
+  });
 }
 
 export async function getClient(id: string): Promise<ClientWithMeta | null> {

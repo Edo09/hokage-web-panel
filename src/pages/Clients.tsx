@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Plus, Search } from 'lucide-react';
-import type { ClientWithMeta } from '@/types';
-import { listClients } from '@/services/clients';
+import { listClientSummaries } from '@/services/clients';
+import { qk } from '@/lib/queryClient';
 import { avatarColor, cn, expiryInfo, relTime } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,27 +23,14 @@ const TONE_CLASS = {
 } as const;
 
 export default function Clients() {
-  const [clients, setClients] = useState<ClientWithMeta[] | null>(null);
-  const [error, setError] = useState(false);
+  const { data: clients, isPending, isError, refetch } = useQuery({
+    queryKey: qk.clientSummaries,
+    queryFn: listClientSummaries,
+  });
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
-
-  // Reset + refetch — for event handlers (add-client, retry). The mount
-  // effect skips the sync reset: `clients` already starts null, and the
-  // hooks lint forbids synchronous setState inside effects.
-  const load = () => {
-    setClients(null);
-    setError(false);
-    void listClients()
-      .then(setClients)
-      .catch(() => setError(true));
-  };
-  useEffect(() => {
-    void listClients()
-      .then(setClients)
-      .catch(() => setError(true));
-  }, []);
 
   const rows = useMemo(() => {
     if (!clients) return [];
@@ -84,13 +72,13 @@ export default function Clients() {
               <span>Vencimiento</span>
             </div>
 
-            {error ? null : !clients ? (
+            {isError ? null : isPending ? (
               <TableSkeleton cols={5} />
             ) : (
               rows.map((c) => {
-                const coachCount = c.routines.filter((r) => r.assigned_by).length;
-                const selfCount = c.routines.length - coachCount;
-                // logs arrive date-DESC (see fetchLogsFor) — newest is [0]
+                const coachCount = c.coachRoutineCount;
+                const selfCount = c.selfRoutineCount;
+                // logs arrive date-DESC — newest is [0]
                 const last = c.logs[0] ?? null;
                 const exp = expiryInfo(c.membership);
                 return (
@@ -137,19 +125,19 @@ export default function Clients() {
           </div>
         </div>
 
-        {error && (
+        {isError && (
           <EmptyState
             icon={AlertCircle}
             title="No se pudo cargar"
             description="Hubo un problema al cargar tus clientes. Revisa tu conexión e inténtalo de nuevo."
           >
-            <Button variant="outline" onClick={load} className="mt-1">
+            <Button variant="outline" onClick={() => void refetch()} className="mt-1">
               Reintentar
             </Button>
           </EmptyState>
         )}
 
-        {!error && clients && rows.length === 0 && (
+        {!isError && clients && rows.length === 0 && (
           <EmptyState
             icon={Search}
             title="Sin resultados"
@@ -160,7 +148,11 @@ export default function Clients() {
 
       {clients && <div className="text-xs text-faint">{rows.length} clientes</div>}
 
-      <AddClientDialog open={addOpen} onOpenChange={setAddOpen} onCreated={load} />
+      <AddClientDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        onCreated={() => queryClient.invalidateQueries({ queryKey: qk.clientSummaries })}
+      />
     </div>
   );
 }

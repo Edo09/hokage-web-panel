@@ -4,6 +4,8 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { ClientWithMeta, Exercise, RoutineWithExercises } from '@/types';
 import { assignRoutine, deleteRoutine, updateRoutine } from '@/services/clients';
 import { listExercises } from '@/services/exercises';
+import { useWeightUnit } from '@/hooks/useWeightUnit';
+import { displayToKg, formatWeight, kgToDisplay, type WeightUnit } from '@/lib/weightUnit';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,14 +51,16 @@ interface BuilderRow {
 
 const emptyRow = (): BuilderRow => ({ exerciseName: '', sets: '4', reps: '10', weight: '', rest: '90' });
 
-const rowsFrom = (routine: RoutineWithExercises): BuilderRow[] =>
+/** Prefills the builder in the coach's chosen display unit — stored weight is
+ *  always kg (submit() converts back). */
+const rowsFrom = (routine: RoutineWithExercises, unit: WeightUnit): BuilderRow[] =>
   routine.routine_exercises.length === 0
     ? [emptyRow()]
     : routine.routine_exercises.map((ex) => ({
         exerciseName: ex.exercise?.name ?? '',
         sets: String(ex.sets),
         reps: String(ex.reps),
-        weight: ex.weight_kg != null ? String(ex.weight_kg) : '',
+        weight: ex.weight_kg != null ? String(Math.round(kgToDisplay(ex.weight_kg, unit) * 100) / 100) : '',
         rest: String(ex.rest_seconds),
       }));
 
@@ -78,11 +82,12 @@ function RoutineBuilder({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { unit } = useWeightUnit();
   const [catalog, setCatalog] = useState<Exercise[] | null>(null);
   const [name, setName] = useState(initial?.name ?? '');
   const [desc, setDesc] = useState(initial?.description ?? '');
   const [day, setDay] = useState(initial?.day_of_week ?? 'monday');
-  const [rows, setRows] = useState<BuilderRow[]>(initial ? rowsFrom(initial) : [emptyRow()]);
+  const [rows, setRows] = useState<BuilderRow[]>(initial ? rowsFrom(initial, unit) : [emptyRow()]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -129,7 +134,7 @@ function RoutineBuilder({
         exercise_id: exercise.id,
         sets: +row.sets || 3,
         reps: +row.reps || 10,
-        weight_kg: +row.weight > 0 ? +row.weight : null,
+        weight_kg: +row.weight > 0 ? Math.round(displayToKg(+row.weight, unit) * 100) / 100 : null,
         rest_seconds: +row.rest || 60,
         sort_order: j,
       })),
@@ -208,7 +213,7 @@ function RoutineBuilder({
             <span>Ejercicio</span>
             <span>Series</span>
             <span>Reps</span>
-            <span>Peso kg</span>
+            <span>Peso {unit}</span>
             <span>Desc. s</span>
             <span></span>
           </div>
@@ -240,7 +245,7 @@ function RoutineBuilder({
                 />
                 <Input
                   type="number"
-                  aria-label="Peso en kilogramos"
+                  aria-label={`Peso en ${unit === 'kg' ? 'kilogramos' : 'libras'}`}
                   className="h-9 rounded-[9px] px-2 text-[13px]"
                   value={row.weight}
                   onChange={(e) => upd(i, 'weight', e.target.value)}
@@ -292,6 +297,7 @@ function RoutineBuilder({
 const EX_GRID = 'grid gap-1.5 [grid-template-columns:2fr_52px_52px_62px_62px]';
 
 export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onChanged: () => void }) {
+  const { unit } = useWeightUnit();
   const [builderOpen, setBuilderOpen] = useState(false);
   const [editing, setEditing] = useState<RoutineWithExercises | null>(null);
   const [pendingDelete, setPendingDelete] = useState<RoutineWithExercises | null>(null);
@@ -394,7 +400,7 @@ export function WorkoutsTab({ client, onChanged }: { client: ClientWithMeta; onC
                 <span className="truncate font-medium">{ex.exercise?.name ?? '—'}</span>
                 <span className="text-center text-muted-foreground">{ex.sets}</span>
                 <span className="text-center text-muted-foreground">{ex.reps}</span>
-                <span className="text-center text-muted-foreground">{ex.weight_kg ? `${ex.weight_kg} kg` : '—'}</span>
+                <span className="text-center text-muted-foreground">{formatWeight(ex.weight_kg, unit)}</span>
                 <span className="text-center text-muted-foreground">{ex.rest_seconds}s</span>
               </div>
             ))}

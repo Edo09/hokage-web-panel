@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronLeft, UserX } from 'lucide-react';
-import type { ClientWithMeta } from '@/types';
 import { getClient } from '@/services/clients';
+import { qk } from '@/lib/queryClient';
 import { activityLabel, avatarColor } from '@/lib/utils';
+import { useWeightUnit } from '@/hooks/useWeightUnit';
+import { formatWeight } from '@/lib/weightUnit';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,12 +15,16 @@ import { StatusBadge } from '@/components/shared/StatusBadge';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { OverviewTab } from './OverviewTab';
 import { WorkoutsTab } from './WorkoutsTab';
+import { ProgramsTab } from './ProgramsTab';
+import { SeguimientoTab } from './SeguimientoTab';
 import { NutritionTab } from './NutritionTab';
 import { ProgressTab } from './ProgressTab';
 import { MembershipTab } from './MembershipTab';
 
 const TABS = [
   { id: 'overview', label: 'Resumen' },
+  { id: 'programs', label: 'Programas' },
+  { id: 'tracking', label: 'Seguimiento' },
   { id: 'workouts', label: 'Rutinas' },
   { id: 'nutrition', label: 'Nutrición' },
   { id: 'progress', label: 'Progreso' },
@@ -28,29 +34,28 @@ const TABS = [
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [client, setClient] = useState<ClientWithMeta | null | 'missing'>(null);
+  const queryClient = useQueryClient();
+  const { unit } = useWeightUnit();
+
+  // Keyed by id, so switching clients swaps queries (and shows the skeleton)
+  // automatically — no manual reset needed. `null` from getClient = missing.
+  const { data: client } = useQuery({
+    queryKey: qk.client(id ?? ''),
+    queryFn: () => getClient(id!),
+    enabled: !!id,
+  });
 
   const tab = searchParams.get('tab') ?? 'overview';
   const setTab = (t: string) => setSearchParams(t === 'overview' ? {} : { tab: t }, { replace: true });
 
-  const reload = useCallback(() => {
-    if (!id) return;
-    void getClient(id).then((c) => setClient(c ?? 'missing'));
-  }, [id]);
+  // Refetch this client after a tab writes, and refresh the lists so the
+  // change (calorie goal, membership, routine counts) shows there too.
+  const reload = () => {
+    void queryClient.invalidateQueries({ queryKey: qk.client(id ?? '') });
+    void queryClient.invalidateQueries({ queryKey: qk.clientSummaries });
+  };
 
-  // Back to the skeleton when navigating to a different client. Render-phase
-  // state adjustment (not a sync setState in the effect below — hooks lint).
-  const [viewedId, setViewedId] = useState(id);
-  if (id !== viewedId) {
-    setViewedId(id);
-    setClient(null);
-  }
-
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  if (client === 'missing') {
+  if (client === null) {
     return (
       <Card>
         <EmptyState icon={UserX} title="Cliente no encontrado" description="Puede que haya sido eliminado.">
@@ -102,7 +107,7 @@ export default function ClientDetail() {
                   {client.height_cm ?? '—'} cm
                 </span>
                 <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
-                  {client.weight_kg ?? '—'} kg
+                  {formatWeight(client.weight_kg, unit)}
                 </span>
                 <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
                   Actividad: {activityLabel(client.activity_level)}
@@ -121,6 +126,12 @@ export default function ClientDetail() {
             </TabsList>
             <TabsContent value="overview">
               <OverviewTab client={client} onGoTab={setTab} />
+            </TabsContent>
+            <TabsContent value="programs">
+              <ProgramsTab client={client} />
+            </TabsContent>
+            <TabsContent value="tracking">
+              <SeguimientoTab client={client} />
             </TabsContent>
             <TabsContent value="workouts">
               <WorkoutsTab client={client} onChanged={reload} />
