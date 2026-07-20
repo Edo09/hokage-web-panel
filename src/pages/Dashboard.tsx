@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, CreditCard, Dumbbell, Plus, Users } from 'lucide-react';
 import type { ClientWithMeta } from '@/types';
 import { getClientTrend, listClients } from '@/services/clients';
-import { avatarColor, daysDiff, relTime } from '@/lib/utils';
+import { avatarColor, daysDiff, monthAbbr, relTime } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatTile } from '@/components/shared/StatTile';
 import { Avatar } from '@/components/shared/Avatar';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { TrendAreaChart, WeeklyBarChart, type WeekBar } from '@/components/shared/charts';
 import { AddClientDialog } from '@/components/shared/AddClientDialog';
 
@@ -23,14 +24,44 @@ interface FeedItem {
 export default function Dashboard() {
   const [clients, setClients] = useState<ClientWithMeta[] | null>(null);
   const [trend, setTrend] = useState<number[]>([]);
+  const [error, setError] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
 
   const load = () => {
-    void listClients().then(setClients);
-    void getClientTrend().then(setTrend);
+    setError(false);
+    void listClients()
+      .then(setClients)
+      .catch(() => setError(true));
+    void getClientTrend()
+      .then(setTrend)
+      .catch(() => setError(true));
   };
-  useEffect(load, []);
+  // Inline the fetches on mount (not load()) — load() sets state synchronously,
+  // which the hooks lint forbids inside an effect. load() is for retry only.
+  useEffect(() => {
+    void listClients()
+      .then(setClients)
+      .catch(() => setError(true));
+    void getClientTrend()
+      .then(setTrend)
+      .catch(() => setError(true));
+  }, []);
+
+  // Month ticks under the 12-week trend chart. Mirrors getClientTrend's
+  // Monday-based window; renders each distinct month once (was hardcoded).
+  const monthTicks = useMemo(() => {
+    const WEEK = 7 * 86_400_000;
+    const monday = new Date();
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const labels: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const mo = monthAbbr(new Date(monday.getTime() - (11 - i) * WEEK));
+      if (labels[labels.length - 1] !== mo) labels.push(mo);
+    }
+    return labels;
+  }, []);
 
   const stats = useMemo(() => {
     if (!clients) return null;
@@ -63,16 +94,32 @@ export default function Dashboard() {
     const feed: FeedItem[] = allLogs
       .sort((a, b) => b.date - a.date)
       .slice(0, 7)
-      .map((l, i) => ({
+      .map((l) => ({
         clientId: l.clientId,
         clientName: l.clientName,
         text: `${l.clientName} completó "${l.routine}"`,
-        time: daysDiff(l.dateIso) === 0 ? `hace ${2 + i} h` : relTime(l.dateIso),
+        time: relTime(l.dateIso),
         date: l.date,
       }));
 
     return { active, paused, expiring, weekLogs, weekBars, feed };
   }, [clients]);
+
+  if (error) {
+    return (
+      <Card className="animate-fade-up">
+        <EmptyState
+          icon={AlertCircle}
+          title="No se pudo cargar el panel"
+          description="Hubo un problema al cargar los datos. Revisa tu conexión e inténtalo de nuevo."
+        >
+          <Button variant="outline" onClick={load} className="mt-1">
+            Reintentar
+          </Button>
+        </EmptyState>
+      </Card>
+    );
+  }
 
   return (
     <div className="flex animate-fade-up flex-col gap-5">
@@ -126,10 +173,9 @@ export default function Dashboard() {
           <CardContent>
             {trend.length ? <TrendAreaChart data={trend} /> : <Skeleton className="h-[150px] rounded-xl" />}
             <div className="mt-2 flex justify-between text-[11.5px] text-faint">
-              <span>abr</span>
-              <span>may</span>
-              <span>jun</span>
-              <span>jul</span>
+              {monthTicks.map((mo, i) => (
+                <span key={i}>{mo}</span>
+              ))}
             </div>
           </CardContent>
         </Card>

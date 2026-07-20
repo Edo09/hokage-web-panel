@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { CreditCard, Pause, Play, RotateCw } from 'lucide-react';
+import { AlertCircle, CreditCard, Pause, Play, RotateCw } from 'lucide-react';
 import type { ClientWithMeta, MembershipStatus } from '@/types';
 import { listClients, renewMembership, updateMembership } from '@/services/clients';
 import { avatarColor, cn, daysDiff, expiryInfo, fmtDate, money } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Avatar } from '@/components/shared/Avatar';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -50,13 +51,23 @@ interface RowMeta {
 
 export default function Memberships() {
   const [clients, setClients] = useState<ClientWithMeta[] | null>(null);
+  const [error, setError] = useState(false);
   const [filter, setFilter] = useState<FilterId>('all');
   const [pauseTarget, setPauseTarget] = useState<ClientWithMeta | null>(null);
   const navigate = useNavigate();
 
-  const load = () => void listClients().then(setClients);
+  const load = () => {
+    setError(false);
+    void listClients()
+      .then(setClients)
+      .catch(() => setError(true));
+  };
+  // Inline the fetch on mount (not load()) — load() sets state synchronously,
+  // which the hooks lint forbids inside an effect. load() is for retry only.
   useEffect(() => {
-    load();
+    void listClients()
+      .then(setClients)
+      .catch(() => setError(true));
   }, []);
 
   const all: RowMeta[] = useMemo(() => {
@@ -81,22 +92,34 @@ export default function Memberships() {
   const rows = all.filter((x) => matches(x, filter));
 
   const doRenew = async (c: ClientWithMeta) => {
-    const m = await renewMembership(c.id);
-    load();
-    toast.success(`Membresía de ${(c.display_name ?? c.email).split(' ')[0]} renovada hasta ${fmtDate(m.expires_at)}`);
+    try {
+      const m = await renewMembership(c.id);
+      load();
+      toast.success(`Membresía de ${(c.display_name ?? c.email).split(' ')[0]} renovada hasta ${fmtDate(m.expires_at)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo renovar la membresía');
+    }
   };
 
   const doPause = async (c: ClientWithMeta) => {
-    await updateMembership(c.id, { status: 'paused' as MembershipStatus });
-    setPauseTarget(null);
-    load();
-    toast.success('Membresía pausada');
+    try {
+      await updateMembership(c.id, { status: 'paused' as MembershipStatus });
+      setPauseTarget(null);
+      load();
+      toast.success('Membresía pausada');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo pausar la membresía');
+    }
   };
 
   const doResume = async (c: ClientWithMeta) => {
-    await updateMembership(c.id, { status: 'active' as MembershipStatus });
-    load();
-    toast.success(`Membresía de ${(c.display_name ?? c.email).split(' ')[0]} reactivada`);
+    try {
+      await updateMembership(c.id, { status: 'active' as MembershipStatus });
+      load();
+      toast.success(`Membresía de ${(c.display_name ?? c.email).split(' ')[0]} reactivada`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo reactivar la membresía');
+    }
   };
 
   return (
@@ -140,7 +163,7 @@ export default function Memberships() {
               <span className="text-right">Acciones</span>
             </div>
 
-            {!clients ? (
+            {error ? null : !clients ? (
               <TableSkeleton cols={6} rows={5} />
             ) : (
               rows.map(({ c, isExpiring, isExpired }) => {
@@ -211,7 +234,19 @@ export default function Memberships() {
           </div>
         </div>
 
-        {clients && rows.length === 0 && (
+        {error && (
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudo cargar"
+            description="Hubo un problema al cargar las membresías. Revisa tu conexión e inténtalo de nuevo."
+          >
+            <Button variant="outline" onClick={load} className="mt-1">
+              Reintentar
+            </Button>
+          </EmptyState>
+        )}
+
+        {!error && clients && rows.length === 0 && (
           <EmptyState icon={CreditCard} title="Nada por aquí" description="No hay membresías con este estado." />
         )}
       </div>

@@ -60,33 +60,46 @@ export function MembershipTab({ client, onChanged }: { client: ClientWithMeta; o
 
   const save = async () => {
     setSaving(true);
-    await updateMembership(client.id, {
-      plan_name: plan,
-      status,
-      price: +price || 0,
-      started_at: fromDateInput(start) ?? m.started_at,
-      expires_at: fromDateInput(expiresAt),
-      notes,
-    });
-    setSaving(false);
-    onChanged();
-    toast.success('Membresía actualizada');
+    try {
+      await updateMembership(client.id, {
+        plan_name: plan,
+        status,
+        price: +price || 0,
+        started_at: fromDateInput(start) ?? m.started_at,
+        expires_at: fromDateInput(expiresAt),
+        notes,
+      });
+      onChanged();
+      toast.success('Membresía actualizada');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo guardar la membresía');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renew = async () => {
-    const updated = await renewMembership(client.id);
-    setStatus('active');
-    setExpiresAt(toDateInput(updated.expires_at));
-    onChanged();
-    toast.success(`Membresía renovada hasta ${fmtDate(updated.expires_at)}`);
+    try {
+      const updated = await renewMembership(client.id);
+      setStatus('active');
+      setExpiresAt(toDateInput(updated.expires_at));
+      onChanged();
+      toast.success(`Membresía renovada hasta ${fmtDate(updated.expires_at)}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo renovar la membresía');
+    }
   };
 
   const pause = async () => {
-    await updateMembership(client.id, { status: 'paused' });
-    setStatus('paused');
-    setPauseOpen(false);
-    onChanged();
-    toast.success('Membresía pausada');
+    try {
+      await updateMembership(client.id, { status: 'paused' });
+      setStatus('paused');
+      setPauseOpen(false);
+      onChanged();
+      toast.success('Membresía pausada');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo pausar la membresía');
+    }
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { AlertCircle, Plus, Search } from 'lucide-react';
 import type { ClientWithMeta } from '@/types';
 import { listClients } from '@/services/clients';
 import { avatarColor, cn, expiryInfo, relTime } from '@/lib/utils';
@@ -23,6 +23,7 @@ const TONE_CLASS = {
 
 export default function Clients() {
   const [clients, setClients] = useState<ClientWithMeta[] | null>(null);
+  const [error, setError] = useState(false);
   const [search, setSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
@@ -32,10 +33,15 @@ export default function Clients() {
   // hooks lint forbids synchronous setState inside effects.
   const load = () => {
     setClients(null);
-    void listClients().then(setClients);
+    setError(false);
+    void listClients()
+      .then(setClients)
+      .catch(() => setError(true));
   };
   useEffect(() => {
-    void listClients().then(setClients);
+    void listClients()
+      .then(setClients)
+      .catch(() => setError(true));
   }, []);
 
   const rows = useMemo(() => {
@@ -78,13 +84,14 @@ export default function Clients() {
               <span>Vencimiento</span>
             </div>
 
-            {!clients ? (
+            {error ? null : !clients ? (
               <TableSkeleton cols={5} />
             ) : (
               rows.map((c) => {
                 const coachCount = c.routines.filter((r) => r.assigned_by).length;
                 const selfCount = c.routines.length - coachCount;
-                const last = c.logs.length ? c.logs[c.logs.length - 1] : null;
+                // logs arrive date-DESC (see fetchLogsFor) — newest is [0]
+                const last = c.logs[0] ?? null;
                 const exp = expiryInfo(c.membership);
                 return (
                   <button
@@ -130,7 +137,19 @@ export default function Clients() {
           </div>
         </div>
 
-        {clients && rows.length === 0 && (
+        {error && (
+          <EmptyState
+            icon={AlertCircle}
+            title="No se pudo cargar"
+            description="Hubo un problema al cargar tus clientes. Revisa tu conexión e inténtalo de nuevo."
+          >
+            <Button variant="outline" onClick={load} className="mt-1">
+              Reintentar
+            </Button>
+          </EmptyState>
+        )}
+
+        {!error && clients && rows.length === 0 && (
           <EmptyState
             icon={Search}
             title="Sin resultados"

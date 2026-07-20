@@ -25,11 +25,16 @@ export function NutritionTab({ client, onChanged }: { client: ClientWithMeta; on
   const save = async () => {
     const v = Math.min(6000, Math.max(800, parseInt(input, 10) || client.calorie_goal || 2000));
     setSaving(true);
-    await updateClient(client.id, { calorie_goal: v });
-    setSaving(false);
-    setEditing(false);
-    onChanged();
-    toast.success(`Meta actualizada: ${v.toLocaleString('en-US')} kcal`);
+    try {
+      await updateClient(client.id, { calorie_goal: v });
+      setEditing(false);
+      onChanged();
+      toast.success(`Meta actualizada: ${v.toLocaleString('en-US')} kcal`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo actualizar la meta');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

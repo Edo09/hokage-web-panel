@@ -11,20 +11,41 @@ import type { ActivityLevel, Membership, MembershipStatus, ProfileGoal } from '@
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
+/**
+ * Parse a stored date into a LOCAL Date. A bare 'YYYY-MM-DD' (workout_logs.date,
+ * membership date columns) is otherwise parsed as UTC midnight, which renders and
+ * compares one calendar day early in western zones (the coach runs in UTC-4). Full
+ * ISO timestamps (created_at, etc.) pass through unchanged.
+ */
+const toLocalDate = (d: string | Date): Date => {
+  if (d instanceof Date) return d;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d);
+};
+
+const startOfDay = (d: Date): number => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.getTime();
+};
+
 export const fmtDate = (d: string | Date | null): string => {
   if (!d) return '—';
-  const date = typeof d === 'string' ? new Date(d) : d;
+  const date = toLocalDate(d);
   return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 };
 
 export const fmtShort = (d: string | Date): string => {
-  const date = typeof d === 'string' ? new Date(d) : d;
+  const date = toLocalDate(d);
   return `${date.getDate()} ${MONTHS[date.getMonth()]}`;
 };
 
+/** Localized month abbreviation ('ene'..'dic') for a stored date. */
+export const monthAbbr = (d: string | Date): string => MONTHS[toLocalDate(d).getMonth()];
+
 export const toDateInput = (d: string | null): string => {
   if (!d) return '';
-  const date = new Date(d);
+  const date = toLocalDate(d);
   const p = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}`;
 };
@@ -35,11 +56,10 @@ export const fromDateInput = (v: string): string | null => {
   return new Date(y, m - 1, d, 12).toISOString();
 };
 
-/** Whole days from today to `d` (negative = past). */
-export const daysDiff = (d: string | Date): number => {
-  const date = typeof d === 'string' ? new Date(d) : d;
-  return Math.round((date.getTime() - Date.now()) / 86_400_000);
-};
+/** Whole CALENDAR days from today to `d` (negative = past). Both sides are floored
+ *  to local midnight so a same-day value is 0 — not -1 from raw-millisecond rounding. */
+export const daysDiff = (d: string | Date): number =>
+  Math.round((startOfDay(toLocalDate(d)) - startOfDay(new Date())) / 86_400_000);
 
 export const relTime = (d: string | Date): string => {
   const n = -daysDiff(d);
