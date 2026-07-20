@@ -6,6 +6,7 @@
  * Requires these migrations applied (mobile app repo, Supabase SQL editor):
  *   20260717150000_profiles_email_sync.sql   — profiles.email + sync trigger
  *   20260717150100_memberships_one_per_client.sql — unique(client_id)
+ *   20260720120000_save_coach_routine_rpc.sql — transactional routine writes
  * plus everything from the coaching-platform migration set.
  */
 import { supabase } from '@/lib/supabaseClient';
@@ -252,76 +253,38 @@ export interface AssignRoutineInput {
   exercises: AssignRoutineExerciseInput[];
 }
 
-function exerciseRows(routineId: string, clientId: string, exercises: AssignRoutineExerciseInput[]) {
-  return exercises.map((ex) => ({
-    routine_id: routineId,
-    user_id: clientId,
-    exercise_id: ex.exercise_id,
-    sets: ex.sets,
-    reps: ex.reps,
-    weight_kg: ex.weight_kg,
-    rest_seconds: ex.rest_seconds,
-    sort_order: ex.sort_order,
-    notes: ex.notes ?? null,
-  }));
+/** Assign (p_routine_id null) or rewrite (id set) a coach routine + its
+ *  exercises atomically. Wraps the save_coach_routine RPC, which does the
+ *  whole write in ONE transaction — the old browser path used 2–3 separate
+ *  calls with no rollback, so a mid-write failure could leave a routine with
+ *  no exercises (the edit path had no compensation). See the migration
+ *  supabase/migrations/20260720120000_save_coach_routine_rpc.sql (mobile repo). */
+async function saveCoachRoutine(
+  routineId: string | null,
+  clientId: string,
+  input: AssignRoutineInput,
+): Promise<void> {
+  const { error } = await supabase.rpc('save_coach_routine', {
+    p_routine_id: routineId,
+    p_client_id: clientId,
+    p_name: input.name,
+    p_description: input.description,
+    p_day_of_week: input.day_of_week,
+    p_exercises: input.exercises,
+  });
+  if (error) throw error;
 }
 
 export async function assignRoutine(clientId: string, input: AssignRoutineInput): Promise<void> {
-  const coachId = await currentCoachId();
-  const { data: routine, error } = await supabase
-    .from('routines')
-    .insert({
-      user_id: clientId,
-      assigned_by: coachId,
-      source: 'coach',
-      name: input.name,
-      description: input.description,
-      day_of_week: input.day_of_week,
-    })
-    .select()
-    .single();
-  if (error) throw error;
-
-  if (input.exercises.length > 0) {
-    const { error: exErr } = await supabase
-      .from('routine_exercises')
-      .insert(exerciseRows(routine.id, clientId, input.exercises));
-    if (exErr) {
-      // Two inserts, no transaction from the browser — don't leave the client
-      // staring at an empty coach routine if the second one failed.
-      await supabase.from('routines').delete().eq('id', routine.id);
-      throw exErr;
-    }
-  }
+  await saveCoachRoutine(null, clientId, input);
 }
 
-/** Rewrites a coach-assigned routine: updates the header row and replaces its
- *  exercise list wholesale (delete + insert — routine_exercises has no
- *  identity worth preserving; the app orders by sort_order). */
 export async function updateRoutine(
   routineId: string,
   clientId: string,
   input: AssignRoutineInput,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('routines')
-    .update({
-      name: input.name,
-      description: input.description,
-      day_of_week: input.day_of_week,
-    })
-    .eq('id', routineId);
-  if (error) throw error;
-
-  const { error: delErr } = await supabase.from('routine_exercises').delete().eq('routine_id', routineId);
-  if (delErr) throw delErr;
-
-  if (input.exercises.length > 0) {
-    const { error: exErr } = await supabase
-      .from('routine_exercises')
-      .insert(exerciseRows(routineId, clientId, input.exercises));
-    if (exErr) throw exErr;
-  }
+  await saveCoachRoutine(routineId, clientId, input);
 }
 
 /** Removes an assigned routine; routine_exercises rows cascade (FK). */
