@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Copy,
   Dumbbell,
+  FileDown,
   Pencil,
   Play,
   Plus,
@@ -28,6 +29,8 @@ import {
   type SaveProgramInput,
 } from '@/services/programs';
 import { listExercises } from '@/services/exercises';
+import { exportProgramPdf } from '@/lib/programPdf';
+import { ExerciseCombobox } from '@/components/shared/ExerciseCombobox';
 import { qk } from '@/lib/queryClient';
 import { cn, fmtDate } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -87,8 +90,6 @@ const STATUS_BADGE: Record<ProgramStatus, string> = {
 };
 
 const WIZARD_STEPS = ['Datos', 'Días y ejercicios', 'Periodización', 'Revisar'] as const;
-
-const DATALIST_ID = 'program-exercise-catalog';
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 const toInt = (s: string): number | null => {
@@ -247,9 +248,19 @@ const WEEK_GRID =
   'grid items-center gap-2 [grid-template-columns:38px_minmax(110px,1.4fr)_104px_104px_50px_48px]';
 
 /* ---- small building blocks ---- */
-function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: ReactNode }) {
+function Field({
+  label,
+  htmlFor,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cn('flex flex-col gap-1.5', className)}>
       <Label htmlFor={htmlFor}>{label}</Label>
       {children}
     </div>
@@ -532,12 +543,6 @@ function ProgramBuilder({
 
   return (
     <Card className="animate-fade-up overflow-hidden border-[1.5px] border-primary p-0">
-      <datalist id={DATALIST_ID}>
-        {(catalog ?? []).map((ex) => (
-          <option key={ex.id} value={ex.name} />
-        ))}
-      </datalist>
-
       {/* Header + stepper */}
       <div className="border-b border-border px-[22px] py-3.5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -571,15 +576,17 @@ function ProgramBuilder({
                 <Input id="pb-focus" placeholder="Ej. Glúteos y Piernas" value={focus} onChange={(e) => setFocus(e.target.value)} />
               </Field>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Duración" htmlFor="pb-weeks">
+            {/* Sized to content — a week count and a date don't need a third of
+                the row apiece; only text fields (name/focus) earn full width. */}
+            <div className="flex flex-wrap gap-3">
+              <Field label="Duración" htmlFor="pb-weeks" className="w-28">
                 <div className="relative">
                   <Input
                     id="pb-weeks"
                     type="number"
                     min={1}
                     max={52}
-                    className="pr-12"
+                    className="pr-11"
                     value={durationWeeks}
                     onChange={(e) => setDuration(e.target.value)}
                   />
@@ -588,10 +595,10 @@ function ProgramBuilder({
                   </span>
                 </div>
               </Field>
-              <Field label="Inicio" htmlFor="pb-start">
+              <Field label="Inicio" htmlFor="pb-start" className="w-40">
                 <Input id="pb-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
               </Field>
-              <Field label="Estado" htmlFor="pb-status">
+              <Field label="Estado" htmlFor="pb-status" className="w-40">
                 <Select value={status} onValueChange={(v) => setStatus(v as ProgramStatus)}>
                   <SelectTrigger id="pb-status">
                     <SelectValue />
@@ -712,13 +719,13 @@ function ProgramBuilder({
                         <div key={xi} className="rounded-lg border border-border bg-card p-2">
                           <div className={EX_GRID}>
                             <span className="text-center text-[12px] font-bold text-muted-foreground">{xi + 1}</span>
-                            <Input
+                            <ExerciseCombobox
                               aria-label="Ejercicio"
-                              list={DATALIST_ID}
+                              catalog={catalog}
                               placeholder={catalog === null ? 'Cargando…' : 'Buscar ejercicio…'}
-                              className="h-8 text-[13px]"
+                              inputClassName="h-8 text-[13px]"
                               value={ex.name}
-                              onChange={(e) => updEx(di, xi, { name: e.target.value })}
+                              onChange={(v) => updEx(di, xi, { name: v })}
                               disabled={catalog === null}
                             />
                             <input
@@ -1169,6 +1176,18 @@ export function ProgramsTab({ client }: { client: ClientWithMeta }) {
                     {p.focus && <div className="mt-0.5 text-[12.5px] text-muted-foreground">{p.focus}</div>}
                   </div>
                   <span className="flex flex-none items-center gap-1">
+                    <button
+                      onClick={() => {
+                        void exportProgramPdf(p, client.display_name ?? client.email)
+                          .then(() => toast.success('PDF descargado'))
+                          .catch((e) => toast.error(e instanceof Error ? e.message : 'No se pudo generar el PDF'));
+                      }}
+                      aria-label={`Exportar ${p.name} a PDF`}
+                      title="Exportar a PDF"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg border border-border text-faint transition-colors hover:border-secondary hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <FileDown className="h-3 w-3" strokeWidth={2.25} />
+                    </button>
                     <button
                       onClick={() => {
                         setBuilderOpen(false);

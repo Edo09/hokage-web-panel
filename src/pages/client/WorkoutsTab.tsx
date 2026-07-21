@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { OwnerBadge } from '@/components/shared/StatusBadge';
+import { ExerciseCombobox } from '@/components/shared/ExerciseCombobox';
 
 /** Stored value is lowercase English ('monday'..'sunday') — matches the
  *  mobile app's convention (day-scheduling/muscle-group logic indexes by
@@ -38,8 +39,6 @@ const WEEKDAYS: { value: string; label: string }[] = [
 
 const dayLabel = (value: string | null): string =>
   (value && WEEKDAYS.find((w) => w.value === value)?.label) || value || '—';
-
-const DATALIST_ID = 'exercise-catalog-options';
 
 interface BuilderRow {
   exerciseName: string; // resolved to exercise_id at submit against the catalog
@@ -163,14 +162,6 @@ function RoutineBuilder({
         {initial ? `Editar rutina — ${initial.name}` : 'Nueva rutina asignada'}
       </div>
 
-      {/* Shared datalist so every row's exercise input autocompletes against
-          the real catalog — resolved back to exercise_id at submit. */}
-      <datalist id={DATALIST_ID}>
-        {(catalog ?? []).map((ex) => (
-          <option key={ex.id} value={ex.name} />
-        ))}
-      </datalist>
-
       <div className="mb-3 grid gap-3 sm:grid-cols-[2fr_1fr]">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="rb-name">Nombre</Label>
@@ -220,13 +211,13 @@ function RoutineBuilder({
           <div className="flex flex-col gap-2">
             {rows.map((row, i) => (
               <div key={i} className={`${ROW_GRID} items-center`}>
-                <Input
+                <ExerciseCombobox
                   aria-label="Ejercicio (del catálogo)"
+                  catalog={catalog}
                   placeholder={catalog === null ? 'Cargando catálogo…' : 'Buscar ejercicio…'}
-                  list={DATALIST_ID}
-                  className="h-9 rounded-[9px] text-[13px]"
+                  inputClassName="h-9 rounded-[9px] text-[13px]"
                   value={row.exerciseName}
-                  onChange={(e) => upd(i, 'exerciseName', e.target.value)}
+                  onChange={(v) => upd(i, 'exerciseName', v)}
                   disabled={catalog === null}
                 />
                 <Input

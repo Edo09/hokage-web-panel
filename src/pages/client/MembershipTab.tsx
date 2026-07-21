@@ -179,16 +179,16 @@ export function MembershipTab({ client, onChanged }: { client: ClientWithMeta; o
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mem-price">Precio (DOP)</Label>
-                <Input id="mem-price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+                <Input id="mem-price" type="number" className="max-w-[150px]" value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
               <div className="hidden sm:block" />
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mem-start">Inicio</Label>
-                <Input id="mem-start" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+                <Input id="mem-start" type="date" className="max-w-[160px]" value={start} onChange={(e) => setStart(e.target.value)} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="mem-exp">Vencimiento</Label>
-                <Input id="mem-exp" type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+                <Input id="mem-exp" type="date" className="max-w-[160px]" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
               </div>
             </div>
             <div className="mt-3 flex flex-col gap-1.5">
