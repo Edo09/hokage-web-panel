@@ -1149,7 +1149,9 @@ export function ProgramsTab({ client }: { client: ClientWithMeta }) {
         </Card>
       ) : (
         <div className="flex flex-col gap-4">
-          {programs.map((p) => {
+          {[...programs]
+            .sort((a, b) => Number(b.status === 'active') - Number(a.status === 'active'))
+            .map((p) => {
             const exCount = p.program_days.reduce((a, d) => a + d.program_exercises.length, 0);
             // "Finished" = every prescribed exercise checked off for every week.
             const target = exCount * p.duration_weeks;
