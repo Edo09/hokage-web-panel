@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Brand wordmark font — same face as the mobile app ("The Hokage"). */
+@font-face {
+  font-family: 'EdoSZ';
+  src: url('/fonts/edosz.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     /* Light theme — cool slate-gray canvas so white cards pop */

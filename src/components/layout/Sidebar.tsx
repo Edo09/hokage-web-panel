@@ -41,7 +41,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         />
         {!collapsed && (
           <div className="min-w-0">
-            <div className="whitespace-nowrap font-heading text-[19px] font-bold tracking-wide">THE HOKAGE</div>
+            <div className="whitespace-nowrap font-brand text-[23px] tracking-wide">THE HOKAGE</div>
             <div className="whitespace-nowrap text-[12px] text-muted-foreground">Coaching</div>
           </div>
         )}

@@ -44,7 +44,7 @@ export default function Login() {
             className="h-[76px] w-[76px] rounded-[20px] border border-border object-cover"
           />
           <div className="text-center">
-            <div className="font-heading text-xl font-bold tracking-wide">The Hokage Coaching</div>
+            <div className="font-brand text-[26px] tracking-wide">The Hokage Coaching</div>
             <div className="mt-0.5 text-[13px] text-muted-foreground">Panel de administración</div>
           </div>
         </div>
