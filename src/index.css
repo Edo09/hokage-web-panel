@@ -16,7 +16,7 @@
     --secondary: 221.2 83.2% 53.3%; /* #2563eb */
     --secondary-foreground: 0 0% 100%;
     --muted: 213 33% 93.5%; /* #e9eef4 elevated */
-    --muted-foreground: 213 17% 42.7%; /* #5b6b7f */
+    --muted-foreground: 214 20% 38%; /* #4d5c6f — bumped for contrast on white */
     --accent: 213 33% 93.5%;
     --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 0 72.2% 50.6%;
@@ -28,37 +28,38 @@
     --ring: 221.2 83.2% 53.3%;
     --success: 142.1 76.2% 36.3%; /* #16a34a */
     --warning: 32.1 94.6% 43.7%; /* #d97706 */
-    --faint: 214 16% 60.8%; /* #8b99ab */
+    --faint: 214 16% 48%; /* #66717f — was too light (2.9:1) to read on white */
     --radius: 0.75rem;
     --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.05);
   }
 
   .dark {
-    /* Dark theme — the signature look */
-    --background: 222.2 47.4% 11.2%; /* #0f172a */
+    /* Dark theme — the signature look. Canvas lifted off pure-black and cards
+       raised a step so panels separate cleanly (was #0f172a / #1e293b). */
+    --background: 222 40% 13%; /* #141b2e */
     --foreground: 210 40% 96.1%; /* #f1f5f9 */
-    --card: 217.2 32.6% 17.5%; /* #1e293b */
+    --card: 216 28% 20%; /* #25303f */
     --card-foreground: 210 40% 96.1%;
-    --popover: 217.2 32.6% 17.5%;
+    --popover: 216 28% 20%;
     --popover-foreground: 210 40% 96.1%;
     --primary: 0 84.2% 60.2%; /* #ef4444 */
     --primary-foreground: 0 0% 100%;
     --secondary: 217.2 91.2% 59.8%; /* #3b82f6 */
     --secondary-foreground: 0 0% 100%;
     --muted: 215 25% 26.7%; /* #334155 elevated */
-    --muted-foreground: 215 20.2% 65.1%; /* #94a3b8 */
+    --muted-foreground: 215 24% 74%; /* #aab6c6 — brighter for comfortable reading */
     --accent: 215 25% 26.7%;
     --accent-foreground: 210 40% 96.1%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 25% 26.7%; /* #334155 */
-    --border-strong: 215 19.3% 34.5%; /* #475569 */
-    --input: 215 25% 26.7%;
+    --border: 215 22% 31%; /* #3c4a5e — stronger edges so cards read */
+    --border-strong: 215 20% 39%; /* #4d5f76 */
+    --input: 215 22% 31%;
     --field: 222.2 47.4% 11.2%; /* #0f172a input bg */
     --ring: 217.2 91.2% 59.8%;
     --success: 142.1 70.6% 45.3%; /* #22c55e */
     --warning: 37.7 92.1% 50.2%; /* #f59e0b */
-    --faint: 215.4 16.3% 46.9%; /* #64748b */
+    --faint: 215 18% 63%; /* #8593a8 — was too dark (2.5:1) on cards */
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
   }
 

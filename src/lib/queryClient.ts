@@ -23,6 +23,7 @@ export const qk = {
   client: (id: string) => ['client', id] as const,
   clientTrend: ['client-trend'] as const,
   programs: (clientId: string) => ['programs', clientId] as const,
+  programCompletions: (clientId: string) => ['program-completions', clientId] as const,
   setLogs: (clientId: string) => ['set-logs', clientId] as const,
   completions: (clientId: string) => ['completions', clientId] as const,
   recentActivity: ['recent-activity'] as const,

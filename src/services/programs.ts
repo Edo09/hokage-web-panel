@@ -133,3 +133,40 @@ export async function deleteProgram(programId: string): Promise<void> {
   const { error } = await supabase.from('programs').delete().eq('id', programId);
   if (error) throw error;
 }
+
+/**
+ * Set a program's status. Only one program per client may be 'active' — setting
+ * one active auto-archives the client's previous active program (enforced by the
+ * trg_enforce_single_active_program trigger, migration 20260721130000), so the
+ * coach can switch which block is live in one call. The status-only UPDATE never
+ * touches start_date, so the past-start guard doesn't fire on a running block.
+ */
+export async function setProgramStatus(programId: string, status: ProgramStatus): Promise<void> {
+  const { error } = await supabase.from('programs').update({ status }).eq('id', programId);
+  if (error) throw error;
+}
+
+/**
+ * How many prescribed exercise-weeks a client has checked off, per program. A
+ * program is "finished" when this reaches (exercises across all days) ×
+ * duration_weeks. Returned as { [programId]: doneCount }; programs with no
+ * completions are simply absent.
+ */
+export async function getProgramCompletionCounts(clientId: string): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from('program_exercise_completions')
+    .select('program_exercise:program_exercises(program_day:program_days(program_id))')
+    .eq('user_id', clientId);
+  if (error) throw error;
+
+  const counts: Record<string, number> = {};
+  for (const row of (data ?? []) as unknown as CompletionProgramRow[]) {
+    const programId = row.program_exercise?.program_day?.program_id;
+    if (programId) counts[programId] = (counts[programId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+interface CompletionProgramRow {
+  program_exercise: { program_day: { program_id: string } | null } | null;
+}
