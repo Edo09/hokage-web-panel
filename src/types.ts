@@ -278,18 +278,18 @@ export interface ExerciseCompletionWithContext extends ExerciseCompletion {
   program_exercise: ProgramExerciseContext | null;
 }
 
-/** One line of cross-client activity for the dashboard feed — a client
- *  finished a legacy routine, checked a program exercise done, or logged a
- *  set. Built by services/tracking.ts#getRecentActivity from
- *  program_exercise_completions + workout_set_logs (grouped per session) so
- *  Dashboard doesn't need to know the underlying tables. */
+/** One line of cross-client PROGRAM activity for the dashboard feed — a client
+ *  checked an exercise done, or logged sets for one. Built by
+ *  services/tracking.ts#getRecentActivity from program_exercise_completions +
+ *  workout_set_logs (set logs deduped per client/exercise/day), so Dashboard
+ *  can merge it with the existing legacy workout_logs feed without knowing the
+ *  underlying tables. Dashboard formats the display text from kind + name. */
 export interface ActivityItem {
   clientId: string;
   clientName: string;
   kind: 'completion' | 'set_log';
   exerciseName: string;
-  /** ISO instant — completions use the real completed_at timestamp; grouped
-   *  set logs use the log date at local midnight (day precision only). */
+  /** ISO instant (or bare date for set logs) for sorting. */
   at: string;
 }
 

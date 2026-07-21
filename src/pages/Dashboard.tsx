@@ -33,6 +33,7 @@ export default function Dashboard() {
 
   const clients = clientsQuery.data;
   const trend = trendQuery.data ?? [];
+  const activity = activityQuery.data;
   const isError = clientsQuery.isError || trendQuery.isError || activityQuery.isError;
 
   const onCreated = () => {
@@ -83,19 +84,35 @@ export default function Dashboard() {
       return { label: i === 7 ? 'Esta' : `-${7 - i} sem`, value, current: i === 7 };
     });
 
-    const feed: FeedItem[] = allLogs
-      .sort((a, b) => b.date - a.date)
-      .slice(0, 7)
-      .map((l) => ({
-        clientId: l.clientId,
-        clientName: l.clientName,
-        text: `${l.clientName} completó "${l.routine}"`,
-        time: relTime(l.dateIso),
-        date: l.date,
-      }));
-
-    return { active, paused, expiring, weekLogs, weekBars, feed };
+    return { active, paused, expiring, weekLogs, weekBars };
   }, [clients]);
+
+  // Feed merges legacy routine completions (workout_logs, via summaries) with
+  // PROGRAM activity (exercise check-offs + set logs) — the latter was the gap:
+  // coaches saw nothing here while clients trained programs in the app.
+  const feed: FeedItem[] = useMemo(() => {
+    const legacy: FeedItem[] = (clients ?? []).flatMap((c) => {
+      const clientName = c.display_name ?? c.email;
+      return c.logs.map((l) => ({
+        clientId: c.id,
+        clientName,
+        text: `${clientName} completó "${l.routine_name}"`,
+        time: relTime(l.date),
+        date: new Date(l.date).getTime(),
+      }));
+    });
+    const program: FeedItem[] = (activity ?? []).map((a) => ({
+      clientId: a.clientId,
+      clientName: a.clientName,
+      text:
+        a.kind === 'completion'
+          ? `${a.clientName} marcó "${a.exerciseName}" como hecho`
+          : `${a.clientName} registró series de "${a.exerciseName}"`,
+      time: relTime(a.at),
+      date: new Date(a.at).getTime(),
+    }));
+    return [...legacy, ...program].sort((a, b) => b.date - a.date).slice(0, 8);
+  }, [clients, activity]);
 
   if (isError) {
     return (
@@ -196,7 +213,7 @@ export default function Dashboard() {
             <CardTitle>Actividad reciente</CardTitle>
           </CardHeader>
           <CardContent>
-            {!stats ? (
+            {!stats || activityQuery.isPending ? (
               <div className="flex flex-col gap-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -205,9 +222,11 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+            ) : feed.length === 0 ? (
+              <p className="px-0.5 py-4 text-[12.5px] text-faint">Sin actividad reciente.</p>
             ) : (
               <div className="flex flex-col">
-                {stats.feed.map((a, i) => (
+                {feed.map((a, i) => (
                   <div key={i} className="flex items-center gap-3 border-b border-border px-0.5 py-[11px]">
                     <Avatar name={a.clientName} color={avatarColor(a.clientId)} size={34} />
                     <span className="min-w-0 flex-1 truncate text-[13px]">{a.text}</span>
