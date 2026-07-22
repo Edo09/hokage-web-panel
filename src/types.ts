@@ -36,6 +36,7 @@ export interface Profile {
   available_days: string[] | null;
   calorie_goal: number | null;
   goal: ProfileGoal | null;
+  account_type: 'coached' | 'solo';
   role: UserRole;
   whatsapp: string | null;
   onboarding_completed: boolean;

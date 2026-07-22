@@ -154,6 +154,9 @@ export async function listClientSummaries(): Promise<ClientSummary[]> {
     .from('profiles')
     .select('*, membership:memberships!client_id(*)')
     .eq('role', 'user')
+    // Only coach-managed clients — solo self-serve users share this DB but
+    // must not appear in the coach's roster (see 20260722120000_solo_account_type).
+    .eq('account_type', 'coached')
     .order('display_name', { ascending: true, nullsFirst: false });
   if (error) throw error;
 
