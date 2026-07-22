@@ -125,7 +125,7 @@ export default function ClientDetail() {
               ))}
             </TabsList>
             <TabsContent value="overview">
-              <OverviewTab client={client} onGoTab={setTab} />
+              <OverviewTab client={client} onGoTab={setTab} onChanged={reload} />
             </TabsContent>
             <TabsContent value="programs">
               <ProgramsTab client={client} />
