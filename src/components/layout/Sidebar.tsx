@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronLeft, CreditCard, LayoutGrid, SlidersHorizontal, Users } from 'lucide-react';
+import { ChevronLeft, CreditCard, Dumbbell, LayoutGrid, SlidersHorizontal, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
 import { Switch } from '@/components/ui/switch';
@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 const NAV = [
   { to: '/', label: 'Panel', icon: LayoutGrid },
   { to: '/clients', label: 'Clientes', icon: Users },
+  { to: '/exercises', label: 'Ejercicios', icon: Dumbbell },
   { to: '/memberships', label: 'Membresías', icon: CreditCard },
   { to: '/settings', label: 'Ajustes', icon: SlidersHorizontal },
 ];

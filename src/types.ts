@@ -59,6 +59,9 @@ export interface Exercise {
   name: string;
   video_url: string | null;
   body_part_id: string | null;
+  // Step-by-step "how to" (jsonb arrays of strings), en + es.
+  instructions_en: string[] | null;
+  instructions_es: string[] | null;
   created_at: string;
   updated_at: string;
   body_part?: BodyPart | null;

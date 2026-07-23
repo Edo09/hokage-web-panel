@@ -20,6 +20,7 @@ export const queryClient = new QueryClient({
 /** Query keys — one place so invalidation and reads can't drift apart. */
 export const qk = {
   clientSummaries: ['client-summaries'] as const,
+  exercises: ['exercises'] as const,
   client: (id: string) => ['client', id] as const,
   clientTrend: ['client-trend'] as const,
   programs: (clientId: string) => ['programs', clientId] as const,
