@@ -14,7 +14,6 @@ import { Avatar } from '@/components/shared/Avatar';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { OverviewTab } from './OverviewTab';
-import { WorkoutsTab } from './WorkoutsTab';
 import { ProgramsTab } from './ProgramsTab';
 import { SeguimientoTab } from './SeguimientoTab';
 import { NutritionTab } from './NutritionTab';
@@ -25,7 +24,6 @@ const TABS = [
   { id: 'overview', label: 'Resumen' },
   { id: 'programs', label: 'Programas' },
   { id: 'tracking', label: 'Seguimiento' },
-  { id: 'workouts', label: 'Rutinas' },
   { id: 'nutrition', label: 'Nutrición' },
   { id: 'progress', label: 'Progreso' },
   { id: 'membership', label: 'Membresía' },
@@ -45,7 +43,9 @@ export default function ClientDetail() {
     enabled: !!id,
   });
 
-  const tab = searchParams.get('tab') ?? 'overview';
+  const requestedTab = searchParams.get('tab') ?? 'overview';
+  // Fall back to overview for a removed/unknown tab (e.g. an old ?tab=workouts link).
+  const tab = TABS.some((t) => t.id === requestedTab) ? requestedTab : 'overview';
   const setTab = (t: string) => setSearchParams(t === 'overview' ? {} : { tab: t }, { replace: true });
 
   // Refetch this client after a tab writes, and refresh the lists so the
@@ -132,9 +132,6 @@ export default function ClientDetail() {
             </TabsContent>
             <TabsContent value="tracking">
               <SeguimientoTab client={client} />
-            </TabsContent>
-            <TabsContent value="workouts">
-              <WorkoutsTab client={client} onChanged={reload} />
             </TabsContent>
             <TabsContent value="nutrition">
               <NutritionTab client={client} onChanged={reload} />

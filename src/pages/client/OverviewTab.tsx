@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Dumbbell } from 'lucide-react';
 import type { ClientWithMeta } from '@/types';
-import { cn, daysDiff, expiryInfo, money } from '@/lib/utils';
+import { cn, expiryInfo, money } from '@/lib/utils';
 import { updateClient } from '@/services/clients';
 import { useWeightUnit } from '@/hooks/useWeightUnit';
 import { formatWeight } from '@/lib/weightUnit';
@@ -180,8 +180,6 @@ export function OverviewTab({
     client.height_cm && client.weight_kg
       ? (client.weight_kg / Math.pow(client.height_cm / 100, 2)).toFixed(1)
       : '—';
-  const logs30 = client.logs.filter((l) => daysDiff(l.date) > -30).length;
-  const coachRoutines = client.routines.filter((r) => r.assigned_by).length;
   const exp = expiryInfo(client.membership);
   const per = client.membership?.plan_name?.includes('Trimestral') ? ' / trim' : ' / mes';
 
@@ -194,8 +192,11 @@ export function OverviewTab({
         <CardContent className="grid grid-cols-2 gap-3">
           <Metric label="Peso actual" value={formatWeight(client.weight_kg, unit)} />
           <Metric label="IMC" value={bmi} />
-          <Metric label="Entrenos (30 d)" value={logs30} />
-          <Metric label="Rutinas asignadas" value={coachRoutines} />
+          <Metric label="Días/semana" value={client.days_per_week ?? '—'} />
+          <Metric
+            label="Duración sesión"
+            value={client.session_duration ? `${client.session_duration} min` : '—'}
+          />
         </CardContent>
       </Card>
 
