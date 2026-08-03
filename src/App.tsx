@@ -7,6 +7,7 @@ import Dashboard from '@/pages/Dashboard';
 import Clients from '@/pages/Clients';
 import ClientDetail from '@/pages/client/ClientDetail';
 import Exercises from '@/pages/Exercises';
+import Programs from '@/pages/Programs';
 import Memberships from '@/pages/Memberships';
 import Settings from '@/pages/Settings';
 
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/clients" element={<Clients />} />
           <Route path="/clients/:id" element={<ClientDetail />} />
+          <Route path="/programs" element={<Programs />} />
           <Route path="/exercises" element={<Exercises />} />
           <Route path="/memberships" element={<Memberships />} />
           <Route path="/settings" element={<Settings />} />

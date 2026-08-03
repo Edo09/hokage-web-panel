@@ -23,6 +23,9 @@ interface ExGroup {
   program: string | null;
   presc: string;
   isUnilateral: boolean;
+  /** Coach-prescribed RIR for this exercise ("2", "1–2" or "—"). Clients no
+   *  longer report RIR — it's the target, so the set table shows that. */
+  rirTarget: string;
   sets: SetLogWithContext[];
   /** Weeks the client checked this exercise done — independent of whether any
    *  set in that week has logged numbers (a client can check a day done
@@ -45,6 +48,7 @@ function ensureGroup(map: Map<string, ExGroup>, key: string, pe: ProgramExercise
       program: pe?.program_day?.program?.name ?? null,
       presc: parts.join(' · '),
       isUnilateral: pe?.is_unilateral ?? false,
+      rirTarget: rir,
       sets: [],
       completedWeeks: [],
       lastDate: 0,
@@ -224,7 +228,7 @@ export function SeguimientoTab({ client }: { client: ClientWithMeta }) {
                     <span className="text-center">Serie</span>
                     <span className="text-right">Peso</span>
                     <span className="text-center">Reps</span>
-                    <span className="text-center">RIR</span>
+                    <span className="text-center">RIR obj.</span>
                   </div>
                   {shown.map((s) => (
                     <div key={s.id} className={`${SET_GRID} items-center border-b border-border py-[6px] text-[12.5px]`}>
@@ -233,7 +237,9 @@ export function SeguimientoTab({ client }: { client: ClientWithMeta }) {
                       <span className="text-center text-muted-foreground">{s.set_index}</span>
                       <span className="text-right font-semibold">{formatWeight(s.weight_kg, unit)}</span>
                       <span className="text-center text-muted-foreground">{s.reps ?? '—'}</span>
-                      <span className="text-center text-muted-foreground">{s.rir ?? '—'}</span>
+                      {/* The coach's target, not a client report — RIR is
+                          prescribed, never entered in the app. */}
+                      <span className="text-center text-faint">{g.rirTarget}</span>
                     </div>
                   ))}
                   {g.sets.length > shown.length && (

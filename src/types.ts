@@ -160,9 +160,14 @@ export type LoadQualitative = 'light' | 'moderate' | 'heavy';
 
 export interface Program {
   id: string;
-  user_id: string;
+  /** null on a TEMPLATE (library blueprint with no client). */
+  user_id: string | null;
   assigned_by: string | null;
   source: 'coach';
+  /** true = reusable library template, never visible to any client. */
+  is_template: boolean;
+  /** On an assigned copy: the template it was created from. */
+  template_id: string | null;
   name: string;
   description: string | null;
   focus: string | null;
@@ -174,6 +179,16 @@ export interface Program {
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** One client currently carrying a copy of a template (Programs page). */
+export interface TemplateAssignment {
+  program_id: string;
+  template_id: string;
+  client_id: string;
+  client_name: string;
+  status: ProgramStatus;
+  start_date: string;
 }
 
 export interface ProgramExercise {

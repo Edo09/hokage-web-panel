@@ -21,6 +21,9 @@ export const queryClient = new QueryClient({
 export const qk = {
   clientSummaries: ['client-summaries'] as const,
   exercises: ['exercises'] as const,
+  bodyParts: ['bodyparts'] as const,
+  programTemplates: ['program-templates'] as const,
+  templateAssignments: ['template-assignments'] as const,
   client: (id: string) => ['client', id] as const,
   clientTrend: ['client-trend'] as const,
   programs: (clientId: string) => ['programs', clientId] as const,

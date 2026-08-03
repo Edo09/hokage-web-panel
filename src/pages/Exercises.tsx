@@ -1,9 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Dumbbell, Film, ListChecks, Pencil, Search } from 'lucide-react';
+import { Dumbbell, Film, ListChecks, Pencil, Plus, Search } from 'lucide-react';
 import type { Exercise } from '@/types';
-import { listExercises, updateExercise } from '@/services/exercises';
+import {
+  createExercise,
+  listBodyParts,
+  listExercises,
+  updateExercise,
+} from '@/services/exercises';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { qk } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -40,7 +46,8 @@ export default function Exercises() {
   });
 
   const [query, setQuery] = useState('');
-  const [editing, setEditing] = useState<Exercise | null>(null);
+  // `editing` holds the row being edited; 'new' opens the same dialog blank.
+  const [editing, setEditing] = useState<Exercise | 'new' | null>(null);
 
   const filtered = useMemo(() => {
     const list = exercises ?? [];
@@ -53,12 +60,17 @@ export default function Exercises() {
 
   return (
     <div className="flex animate-fade-up flex-col gap-4">
-      <div>
-        <h1 className="font-heading text-[22px] font-bold">Ejercicios</h1>
-        <p className="text-[13px] text-muted-foreground">
-          Catálogo compartido — editar un ejercicio actualiza su nombre, demo e instrucciones en cada
-          rutina y programa asignado.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-heading text-[22px] font-bold">Ejercicios</h1>
+          <p className="text-[13px] text-muted-foreground">
+            Catálogo compartido — editar un ejercicio actualiza su nombre, demo e instrucciones en
+            cada rutina y programa asignado.
+          </p>
+        </div>
+        <Button className="flex-none" onClick={() => setEditing('new')}>
+          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Nuevo ejercicio
+        </Button>
       </div>
 
       {isError ? (
@@ -117,7 +129,7 @@ export default function Exercises() {
       )}
 
       <ExerciseEditor
-        key={editing?.id ?? 'none'}
+        key={editing === 'new' ? 'new' : (editing?.id ?? 'none')}
         exercise={editing}
         onClose={() => setEditing(null)}
         onSaved={() => {
@@ -167,28 +179,46 @@ function ExerciseEditor({
   onClose,
   onSaved,
 }: {
-  exercise: Exercise | null;
+  /** An existing row to edit, or 'new' to create one. */
+  exercise: Exercise | 'new' | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [name, setName] = useState(exercise?.name ?? '');
-  const [videoUrl, setVideoUrl] = useState(exercise?.video_url ?? '');
-  const [es, setEs] = useState(stepsToText(exercise?.instructions_es ?? null));
-  const [en, setEn] = useState(stepsToText(exercise?.instructions_en ?? null));
+  const isNew = exercise === 'new';
+  const row = isNew ? null : exercise;
+
+  const [name, setName] = useState(row?.name ?? '');
+  const [videoUrl, setVideoUrl] = useState(row?.video_url ?? '');
+  const [bodyPartId, setBodyPartId] = useState(row?.body_part_id ?? '');
+  const [es, setEs] = useState(stepsToText(row?.instructions_es ?? null));
+  const [en, setEn] = useState(stepsToText(row?.instructions_en ?? null));
   const [saving, setSaving] = useState(false);
+
+  const { data: bodyParts } = useQuery({
+    queryKey: qk.bodyParts,
+    queryFn: listBodyParts,
+    enabled: exercise != null,
+  });
 
   const save = async () => {
     if (exercise == null) return;
     if (!name.trim()) return toast.error('El nombre no puede estar vacío');
     setSaving(true);
     try {
-      await updateExercise(exercise.id, {
+      const payload = {
         name: name.trim(),
         video_url: videoUrl.trim() || null,
+        body_part_id: bodyPartId || null,
         instructions_es: textToSteps(es),
         instructions_en: textToSteps(en),
-      });
-      toast.success('Ejercicio actualizado');
+      };
+      if (isNew) {
+        await createExercise(payload);
+        toast.success(`"${payload.name}" añadido al catálogo`);
+      } else {
+        await updateExercise(row!.id, payload);
+        toast.success('Ejercicio actualizado');
+      }
       onSaved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo guardar el ejercicio');
@@ -203,13 +233,36 @@ function ExerciseEditor({
     <Dialog open={exercise != null} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[640px]">
         <DialogHeader>
-          <DialogTitle>Editar ejercicio</DialogTitle>
+          <DialogTitle>{isNew ? 'Nuevo ejercicio' : 'Editar ejercicio'}</DialogTitle>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ex-name">Nombre</Label>
-            <Input id="ex-name" value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="flex flex-wrap gap-3">
+            <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+              <Label htmlFor="ex-name">Nombre</Label>
+              <Input
+                id="ex-name"
+                placeholder="Ej. Sentadilla Búlgara con Mancuernas"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus={isNew}
+              />
+            </div>
+            <div className="flex w-[200px] flex-col gap-1.5">
+              <Label htmlFor="ex-bp">Grupo muscular</Label>
+              <Select value={bodyPartId} onValueChange={setBodyPartId}>
+                <SelectTrigger id="ex-bp">
+                  <SelectValue placeholder="Sin asignar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(bodyParts ?? []).map((bp) => (
+                    <SelectItem key={bp.id} value={bp.id}>
+                      {bp.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
