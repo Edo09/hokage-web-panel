@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  Apple,
   CalendarRange,
   ChevronLeft,
   CreditCard,
@@ -16,6 +17,7 @@ const NAV = [
   { to: '/', label: 'Panel', icon: LayoutGrid },
   { to: '/clients', label: 'Clientes', icon: Users },
   { to: '/programs', label: 'Programas', icon: CalendarRange },
+  { to: '/nutrition', label: 'Nutrición', icon: Apple },
   { to: '/exercises', label: 'Ejercicios', icon: Dumbbell },
   { to: '/memberships', label: 'Membresías', icon: CreditCard },
   { to: '/settings', label: 'Ajustes', icon: SlidersHorizontal },

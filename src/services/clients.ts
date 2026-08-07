@@ -10,6 +10,8 @@
  * plus everything from the coaching-platform migration set.
  */
 import { supabase } from '@/lib/supabaseClient';
+import { listNutritionPlansForClient } from '@/services/nutritionPlans';
+import { listSupplementPlansForClient } from '@/services/supplementPlans';
 import type {
   Client,
   ClientSummary,
@@ -17,7 +19,9 @@ import type {
   CoachProfile,
   Membership,
   MealWithItems,
+  NutritionPlanWithDetail,
   RoutineWithExercises,
+  SupplementPlanWithDetail,
   WorkoutLog,
 } from '../types';
 
@@ -95,6 +99,8 @@ function assemble(
   routinesByUser: Record<string, RoutineWithExercises[]>,
   mealsByUser: Record<string, MealWithItems[]>,
   logsByUser: Record<string, WorkoutLog[]>,
+  nutritionPlans: NutritionPlanWithDetail[],
+  supplementPlans: SupplementPlanWithDetail[],
 ): ClientWithMeta {
   const id = profile.id as string;
   const membershipEmbed = profile.membership as Membership | Membership[] | null;
@@ -104,6 +110,8 @@ function assemble(
     routines: routinesByUser[id] ?? [],
     meals: mealsByUser[id] ?? [],
     logs: logsByUser[id] ?? [],
+    nutritionPlans,
+    supplementPlans,
   };
 }
 
@@ -186,13 +194,16 @@ export async function getClient(id: string): Promise<ClientWithMeta | null> {
   if (error) throw error;
   if (!profile) return null;
 
-  const [routinesByUser, mealsByUser, logsByUser] = await Promise.all([
-    fetchRoutinesFor([id]),
-    fetchMealsFor([id]),
-    fetchLogsFor([id]),
-  ]);
+  const [routinesByUser, mealsByUser, logsByUser, nutritionPlans, supplementPlans] =
+    await Promise.all([
+      fetchRoutinesFor([id]),
+      fetchMealsFor([id]),
+      fetchLogsFor([id]),
+      listNutritionPlansForClient(id),
+      listSupplementPlansForClient(id),
+    ]);
 
-  return assemble(profile, routinesByUser, mealsByUser, logsByUser);
+  return assemble(profile, routinesByUser, mealsByUser, logsByUser, nutritionPlans, supplementPlans);
 }
 
 export async function getCoachProfile(): Promise<CoachProfile> {

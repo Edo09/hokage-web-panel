@@ -118,6 +118,9 @@ export interface MealItem {
   fat_g: number;
   portion: string | null;
   photo_path: string | null;
+  /** Set when the client logged this from a prescribed nutrition-plan option —
+   *  the adherence link. Null for free-form entries. */
+  plan_option_id: string | null;
   created_at: string;
 }
 
@@ -312,6 +315,175 @@ export interface ActivityItem {
   at: string;
 }
 
+/* ---------------- Coach Nutrition & Supplementation ----------------
+ * Mirrors supabase/migrations/20260807120000_nutrition_plans.sql and
+ * 20260807120100_supplement_plans.sql. Two INDEPENDENTLY assignable plans, each
+ * with its own template library — a coach swaps diets far more often than
+ * supplement stacks.
+ *
+ * A nutrition plan is: header → meal slots → rotation options → foods, plus a
+ * macro target table per day type. day_type sits on the FOOD, not the option:
+ * "Almuerzo Día 1-2" is one option holding rice (training only) and chicken
+ * (both), which is how carb cycling is expressed.
+ *
+ * Foods carry a name and nothing else — no quantity, no macros. The coach
+ * prescribes WHAT to eat; every number is measured later from the client's
+ * photo by the AI estimator. The only figures a coach types are the plan-level
+ * targets. */
+
+/** Nutrition and supplement plans share the programs status vocabulary, so the
+ *  STATUS_LABEL / STATUS_BADGE maps in lib/programStatus.ts apply unchanged. */
+export type PlanStatus = ProgramStatus;
+
+/** Which kind of day a food, slot, or supplement survives on. */
+export type DayType = 'both' | 'training' | 'rest';
+
+/** Six slots, but meals.meal_type only allows four — pre_workout/post_workout
+ *  collapse to 'snack' when a prescription is written into the diary. */
+export type PlanMealType = MealType | 'pre_workout' | 'post_workout';
+
+export type SupplementTier = 'base' | 'conditional' | 'optional';
+
+/** The schedule table at the end of a supplement plan is a group-by over this. */
+export type SupplementTiming =
+  | 'wake'
+  | 'breakfast'
+  | 'pre_workout'
+  | 'intra_workout'
+  | 'post_workout'
+  | 'lunch'
+  | 'dinner'
+  | 'bedtime'
+  | 'any';
+
+export interface NutritionPlan {
+  id: string;
+  /** null on a TEMPLATE (library blueprint with no client). */
+  user_id: string | null;
+  assigned_by: string | null;
+  source: 'coach';
+  is_template: boolean;
+  template_id: string | null;
+  name: string;
+  description: string | null;
+  focus: string | null;
+  /** null = open-ended phase; the client sees no week counter. */
+  duration_weeks: number | null;
+  start_date: string; // ISO date
+  status: PlanStatus;
+  /** false collapses the UI to a single day type and one 'both' target row. */
+  day_cycling: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NutritionPlanTarget {
+  id: string;
+  plan_id: string;
+  day_type: DayType;
+  kcal_min: number | null;
+  kcal_max: number | null;
+  protein_min_g: number | null;
+  protein_max_g: number | null;
+  carbs_min_g: number | null;
+  carbs_max_g: number | null;
+  fat_min_g: number | null;
+  fat_max_g: number | null;
+  notes: string | null;
+  created_at: string;
+}
+
+/** A single food. Name is free text, so a coach who wants a portion stated just
+ *  types it ("Arroz 110 g") — there is no structured quantity. */
+export interface NutritionPlanOptionItem {
+  id: string;
+  option_id: string;
+  name: string;
+  day_type: DayType;
+  sort_order: number;
+  created_at: string;
+}
+
+/** One rotation choice within a slot — "Opción 1", "Día 1-2". */
+export interface NutritionPlanOption {
+  id: string;
+  plan_meal_id: string;
+  label: string | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  nutrition_plan_option_items: NutritionPlanOptionItem[];
+}
+
+export interface NutritionPlanMeal {
+  id: string;
+  plan_id: string;
+  slot_index: number;
+  label: string | null;
+  meal_type: PlanMealType;
+  time_hint: string | null;
+  /** Gates the whole slot: post-workout is 'training', so it disappears on a
+   *  rest day — but its `notes` still carry the substitution to read. */
+  applies_to: DayType;
+  is_optional: boolean;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
+  nutrition_plan_options: NutritionPlanOption[];
+}
+
+export type NutritionPlanWithDetail = NutritionPlan & {
+  nutrition_plan_meals: NutritionPlanMeal[];
+  nutrition_plan_targets: NutritionPlanTarget[];
+};
+
+export interface SupplementPlan {
+  id: string;
+  user_id: string | null;
+  assigned_by: string | null;
+  source: 'coach';
+  is_template: boolean;
+  template_id: string | null;
+  name: string;
+  description: string | null;
+  start_date: string; // ISO date
+  status: PlanStatus;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupplementPlanItem {
+  id: string;
+  plan_id: string;
+  name: string;
+  tier: SupplementTier;
+  dose: string | null;
+  timing_slot: SupplementTiming;
+  timing_note: string | null;
+  purpose: string | null;
+  notes: string | null;
+  applies_to: DayType;
+  sort_order: number;
+  created_at: string;
+}
+
+export type SupplementPlanWithDetail = SupplementPlan & {
+  supplement_plan_items: SupplementPlanItem[];
+};
+
+/** One client currently carrying a copy of a nutrition or supplement template.
+ *  The plan-side twin of TemplateAssignment. */
+export interface PlanAssignment {
+  plan_id: string;
+  template_id: string;
+  client_id: string;
+  client_name: string;
+  status: PlanStatus;
+  start_date: string;
+}
+
 export interface CoachProfile {
   display_name: string;
   avatar_url: string | null;
@@ -325,6 +497,10 @@ export interface ClientWithMeta extends Client {
   routines: RoutineWithExercises[];
   meals: MealWithItems[];
   logs: WorkoutLog[];
+  /** Assigned nutrition/supplement plans, newest first. Independently
+   *  assignable, so a client may have one, both, or neither. */
+  nutritionPlans: NutritionPlanWithDetail[];
+  supplementPlans: SupplementPlanWithDetail[];
 }
 
 /** Lightweight aggregate for the LIST screens (Clients, Dashboard, Memberships).
