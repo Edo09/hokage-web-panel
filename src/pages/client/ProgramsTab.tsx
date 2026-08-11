@@ -56,6 +56,20 @@ import {
 import { EmptyState } from '@/components/shared/EmptyState';
 import type { ReactNode } from 'react';
 
+const isoDate = (d: Date): string => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+const todayISO = (): string => isoDate(new Date());
+// Assignments default to starting tomorrow: the write-time trigger rejects a
+// start_date before the server's current_date, and a same-day default can land
+// in the past across the UTC boundary.
+const tomorrowISO = (): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return isoDate(d);
+};
+
 /* ---------------- tab ---------------- */
 
 export function ProgramsTab({ client }: { client: ClientWithMeta }) {
@@ -466,11 +480,7 @@ function TemplatePicker({
   // Archived templates are off the shelf — not assignable.
   const templates = allTemplates?.filter((t) => t.status === 'active');
   const [picked, setPicked] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-  });
+  const [startDate, setStartDate] = useState(tomorrowISO());
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
@@ -508,6 +518,7 @@ function TemplatePicker({
               id="tp-start"
               type="date"
               className="max-w-[180px]"
+              min={todayISO()}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />

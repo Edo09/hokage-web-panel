@@ -52,10 +52,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EmptyState } from '@/components/shared/EmptyState';
 
-const todayISO = (): string => {
-  const d = new Date();
+const isoDate = (d: Date): string => {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+const todayISO = (): string => isoDate(new Date());
+
+// Default program start is tomorrow: the write-time trigger rejects a
+// start_date before the server's current_date, and a same-day default can
+// land in the past across the UTC boundary. Starting next day is always valid.
+const tomorrowISO = (): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return isoDate(d);
 };
 
 /**
@@ -425,7 +435,7 @@ function AssignDialog({
   });
 
   const [clientId, setClientId] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState(todayISO());
+  const [startDate, setStartDate] = useState(tomorrowISO());
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -472,6 +482,7 @@ function AssignDialog({
               id="as-start"
               type="date"
               className="max-w-[180px]"
+              min={todayISO()}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
