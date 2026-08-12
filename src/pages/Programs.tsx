@@ -5,6 +5,7 @@ import {
   Archive,
   ArchiveRestore,
   CalendarRange,
+  ChevronDown,
   Copy,
   Dumbbell,
   FileDown,
@@ -81,6 +82,8 @@ export default function Programs() {
   const [pendingArchive, setPendingArchive] = useState<ProgramWithDetail | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState<ProgramWithDetail | null>(null);
+  // Archived templates are retired clutter — kept, but out of the way.
+  const [showArchived, setShowArchived] = useState(false);
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: qk.programTemplates });
@@ -190,26 +193,37 @@ export default function Programs() {
 
           {archivedTemplates.length > 0 && (
             <>
-              <div className="mt-2 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-faint">
+              <button
+                type="button"
+                onClick={() => setShowArchived((v) => !v)}
+                aria-expanded={showArchived}
+                className="mt-1 flex w-fit items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-semibold text-faint transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <Archive className="h-3.5 w-3.5" strokeWidth={2} />
-                Archivados ({archivedTemplates.length})
-              </div>
-              {archivedTemplates.map((tpl) => (
-                <TemplateCard
-                  key={tpl.id}
-                  template={tpl}
-                  assigned={assignments?.[tpl.id] ?? []}
-                  busy={busyId === tpl.id}
-                  archived
-                  onPreview={() => setPreviewing(tpl)}
-              onEdit={() => {
-                    setBuilderOpen(false);
-                    setEditing(tpl);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  onRestore={() => void setShelfState(tpl, false)}
+                {showArchived ? 'Ocultar archivados' : `Ver archivados (${archivedTemplates.length})`}
+                <ChevronDown
+                  className={cn('h-3.5 w-3.5 transition-transform', showArchived && 'rotate-180')}
+                  strokeWidth={2}
                 />
-              ))}
+              </button>
+
+              {showArchived &&
+                archivedTemplates.map((tpl) => (
+                  <TemplateCard
+                    key={tpl.id}
+                    template={tpl}
+                    assigned={assignments?.[tpl.id] ?? []}
+                    busy={busyId === tpl.id}
+                    archived
+                    onPreview={() => setPreviewing(tpl)}
+                    onEdit={() => {
+                      setBuilderOpen(false);
+                      setEditing(tpl);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    onRestore={() => void setShelfState(tpl, false)}
+                  />
+                ))}
             </>
           )}
         </div>
