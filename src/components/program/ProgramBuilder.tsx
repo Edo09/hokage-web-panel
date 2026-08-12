@@ -70,6 +70,15 @@ const todayISO = (): string => {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
+// New client programs default to starting tomorrow: the write-time trigger
+// rejects a start_date before the server's current_date, and a same-day
+// default can land in the past across the UTC boundary.
+const tomorrowISO = (): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 const rangeText = (min: string, max: string): string => {
   const a = min.trim();
   const b = max.trim();
@@ -381,7 +390,7 @@ export function ProgramBuilder({
   const [focus, setFocus] = useState(initial?.focus ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [durationWeeks, setDurationWeeks] = useState(String(initial?.duration_weeks ?? 4));
-  const [startDate, setStartDate] = useState(initial?.start_date?.slice(0, 10) ?? todayISO());
+  const [startDate, setStartDate] = useState(initial?.start_date?.slice(0, 10) ?? tomorrowISO());
   const [status, setStatus] = useState<ProgramStatus>(initial?.status ?? 'active');
   const [progressionRule, setProgressionRule] = useState(initial?.progression_rule ?? '');
   const [tempoDefault, setTempoDefault] = useState(initial?.tempo_default ?? '');
@@ -627,6 +636,9 @@ export function ProgramBuilder({
                     <Input
                       id="pb-start"
                       type="date"
+                      // Guard past dates only when creating; editing a running
+                      // block must keep its original (possibly past) start.
+                      min={initial ? undefined : todayISO()}
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                     />
