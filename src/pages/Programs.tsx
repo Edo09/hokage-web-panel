@@ -12,12 +12,14 @@ import {
   Pencil,
   Plus,
   Smartphone,
+  Trash2,
   UserPlus,
   Users,
 } from 'lucide-react';
 import type { ProgramWithDetail, TemplateAssignment } from '@/types';
 import {
   assignTemplate,
+  deleteProgram,
   listProgramTemplates,
   listTemplateAssignments,
   setProgramStatus,
@@ -28,6 +30,7 @@ import { ProgramBuilder } from '@/components/program/ProgramBuilder';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { programToPreview } from '@/components/program/previewModel';
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
+import { errorMessage } from '@/lib/dbError';
 import { draftKey, hasDraft } from '@/lib/programDraft';
 import { qk } from '@/lib/queryClient';
 import { cn, fmtDate } from '@/lib/utils';
@@ -95,6 +98,7 @@ export default function Programs() {
   const [previewing, setPreviewing] = useState<ProgramWithDetail | null>(null);
   // Archived templates are retired clutter — kept, but out of the way.
   const [showArchived, setShowArchived] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ProgramWithDetail | null>(null);
   // Surface a draft that survived a refresh — otherwise the coach assumes the
   // work is gone and starts over.
   const draftWaiting = useMemo(
@@ -122,6 +126,23 @@ export default function Programs() {
       invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo cambiar el estado de la plantilla');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Permanent removal, offered only once a template is archived. Assigned
+  // copies survive: programs.template_id is ON DELETE SET NULL, so no client
+  // loses the block they are running.
+  const destroyTemplate = async (tpl: ProgramWithDetail) => {
+    setBusyId(tpl.id);
+    try {
+      await deleteProgram(tpl.id);
+      toast.success(`"${tpl.name}" eliminado`);
+      setPendingDelete(null);
+      invalidate();
+    } catch (e) {
+      toast.error(errorMessage(e, 'No se pudo eliminar la plantilla'));
     } finally {
       setBusyId(null);
     }
@@ -240,6 +261,7 @@ export default function Programs() {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     onRestore={() => void setShelfState(tpl, false)}
+                    onDelete={() => setPendingDelete(tpl)}
                   />
                 ))}
             </>
@@ -265,6 +287,27 @@ export default function Programs() {
           void queryClient.invalidateQueries({ queryKey: qk.clientSummaries });
         }}
       />
+
+      <AlertDialog open={pendingDelete != null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar &quot;{pendingDelete?.name}&quot; para siempre?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Los programas que ya asignaste a tus clientes NO se
+              tocan — siguen intactos en su app.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyId != null}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busyId != null}
+              onClick={() => pendingDelete && void destroyTemplate(pendingDelete)}
+            >
+              {busyId != null ? 'Eliminando…' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={pendingArchive != null} onOpenChange={(o) => !o && setPendingArchive(null)}>
         <AlertDialogContent>
@@ -300,6 +343,7 @@ function TemplateCard({
   onAssign,
   onArchive,
   onRestore,
+  onDelete,
 }: {
   template: ProgramWithDetail;
   assigned: TemplateAssignment[];
@@ -310,6 +354,8 @@ function TemplateCard({
   onAssign?: () => void;
   onArchive?: () => void;
   onRestore?: () => void;
+  /** Permanent removal — only offered on archived templates. */
+  onDelete?: () => void;
 }) {
   const exCount = template.program_days.reduce((a, d) => a + d.program_exercises.length, 0);
   const active = assigned.filter((a) => a.status === 'active').length;
@@ -362,6 +408,18 @@ function TemplateCard({
               disabled={busy}
             >
               <ArchiveRestore className="h-3 w-3" strokeWidth={2.25} />
+            </IconBtn>
+          ) : null}
+          {archived ? (
+            // Permanent removal is only reachable once retired — archive first.
+            <IconBtn
+              label={`Eliminar ${template.name}`}
+              title="Eliminar definitivamente"
+              onClick={() => onDelete?.()}
+              disabled={busy}
+              danger
+            >
+              <Trash2 className="h-3 w-3" strokeWidth={2.25} />
             </IconBtn>
           ) : (
             <IconBtn
