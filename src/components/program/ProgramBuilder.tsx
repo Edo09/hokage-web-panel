@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, Smartphone, Trash2, X } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  RotateCcw,
+  Smartphone,
+  Trash2,
+  X,
+} from 'lucide-react';
 import type { ClientWithMeta, Exercise, LoadQualitative, ProgramStatus, ProgramWithDetail } from '@/types';
 import {
   createProgram,
@@ -13,6 +23,8 @@ import {
 import { listExercises } from '@/services/exercises';
 import { ExerciseCombobox } from '@/components/shared/ExerciseCombobox';
 import { cn, fmtDate } from '@/lib/utils';
+import { errorMessage } from '@/lib/dbError';
+import { clearDraft, draftAge, draftKey, loadDraft, saveDraft } from '@/lib/programDraft';
 import { STATUS_LABEL } from '@/lib/programStatus';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -175,6 +187,99 @@ const advSummary = (x: ExRow): string => {
   if (x.notes.trim()) parts.push('con nota');
   return parts.join(' · ');
 };
+
+/** Everything the builder needs to restore itself from localStorage. */
+interface DraftData {
+  name: string;
+  focus: string;
+  description: string;
+  durationWeeks: string;
+  startDate: string;
+  status: ProgramStatus;
+  progressionRule: string;
+  tempoDefault: string;
+  notes: string;
+  days: DayRow[];
+  weeks: WeekRow[];
+}
+
+/**
+ * Mirrors every CHECK constraint in 20260717120000_coach_programs.sql. Without
+ * this the DB rejects the whole save and the coach only learns something was
+ * wrong — not which field. Returns the step to jump to plus the message.
+ *
+ * Keep in sync with the migration: sets 1–20, reps 1–100, RIR 0–10,
+ * %1RM 1–100, rest 0–900, and min ≤ max on reps and RIR.
+ */
+const checkRange = (
+  raw: string,
+  lo: number,
+  hi: number,
+  label: string,
+): string | null => {
+  const v = toInt(raw);
+  if (v == null) return null; // empty is allowed — it's stored as null
+  return v < lo || v > hi ? `${label} debe estar entre ${lo} y ${hi}.` : null;
+};
+
+function validateProgram(days: DayRow[], weeks: WeekRow[]): { step: number; message: string } | null {
+  for (const [di, d] of days.entries()) {
+    for (const [xi, x] of d.exercises.entries()) {
+      if (!x.name.trim()) continue; // blank rows are dropped before saving
+      const where = `Día ${di + 1}, ejercicio ${xi + 1}`;
+
+      const sets = toInt(x.sets);
+      if (sets != null && (sets < 1 || sets > 20)) {
+        return { step: 1, message: `${where}: las series deben estar entre 1 y 20.` };
+      }
+      for (const [raw, label] of [
+        [x.repMin, 'las repeticiones mínimas'],
+        [x.repMax, 'las repeticiones máximas'],
+      ] as const) {
+        const err = checkRange(raw, 1, 100, label);
+        if (err) return { step: 1, message: `${where}: ${err}` };
+      }
+      const repMin = toInt(x.repMin);
+      const repMax = toInt(x.repMax);
+      if (repMin != null && repMax != null && repMin > repMax) {
+        return { step: 1, message: `${where}: las repeticiones van de menor a mayor (${repMin}–${repMax}).` };
+      }
+
+      for (const [raw, label] of [
+        [x.rirMin, 'el RIR mínimo'],
+        [x.rirMax, 'el RIR máximo'],
+      ] as const) {
+        const err = checkRange(raw, 0, 10, label);
+        if (err) return { step: 1, message: `${where}: ${err}` };
+      }
+      const rirMin = toInt(x.rirMin);
+      const rirMax = toInt(x.rirMax);
+      if (rirMin != null && rirMax != null && rirMin > rirMax) {
+        return { step: 1, message: `${where}: el RIR va de menor a mayor (${rirMin}–${rirMax}).` };
+      }
+
+      const pct = checkRange(x.loadPct, 1, 100, 'el %1RM');
+      if (pct) return { step: 1, message: `${where}: ${pct}` };
+      const rest = checkRange(x.rest, 0, 900, 'el descanso (en segundos)');
+      if (rest) return { step: 1, message: `${where}: ${rest}` };
+    }
+  }
+
+  for (const [wi, w] of weeks.entries()) {
+    const where = `Semana ${wi + 1}`;
+    for (const [raw, label, lo, hi] of [
+      [w.rirMin, 'el RIR mínimo', 0, 10],
+      [w.rirMax, 'el RIR máximo', 0, 10],
+      [w.loadMin, 'el % de carga mínimo', 1, 100],
+      [w.loadMax, 'el % de carga máximo', 1, 100],
+      [w.setsOverride, 'las series', 1, 20],
+    ] as const) {
+      const err = checkRange(raw, lo, hi, label);
+      if (err) return { step: 2, message: `${where}: ${err}` };
+    }
+  }
+  return null;
+}
 
 const weekHasData = (w: WeekRow): boolean =>
   !!(w.label.trim() || w.rirMin || w.rirMax || w.loadMin || w.loadMax || w.isDeload || w.setsOverride || w.notes.trim());
@@ -385,18 +490,38 @@ export function ProgramBuilder({
   onSaved: () => void;
 }) {
   const isTemplate = client == null;
+
+  // Autosave slot for THIS builder context (a client's program, or a template;
+  // new vs editing an existing one).
+  const storageKey = draftKey(isTemplate ? 'template' : client!.id, initial?.id ?? 'new');
+  // Read once, at mount, so restored values seed useState directly — no flash
+  // of empty fields and no effect-driven overwrite.
+  const [restored] = useState(() => loadDraft<DraftData>(storageKey));
+  const d = restored?.data;
+  const [draftDismissed, setDraftDismissed] = useState(false);
+
   const [catalog, setCatalog] = useState<Exercise[] | null>(null);
-  const [name, setName] = useState(initial?.name ?? '');
-  const [focus, setFocus] = useState(initial?.focus ?? '');
-  const [description, setDescription] = useState(initial?.description ?? '');
-  const [durationWeeks, setDurationWeeks] = useState(String(initial?.duration_weeks ?? 4));
-  const [startDate, setStartDate] = useState(initial?.start_date?.slice(0, 10) ?? tomorrowISO());
-  const [status, setStatus] = useState<ProgramStatus>(initial?.status ?? 'active');
-  const [progressionRule, setProgressionRule] = useState(initial?.progression_rule ?? '');
-  const [tempoDefault, setTempoDefault] = useState(initial?.tempo_default ?? '');
-  const [notes, setNotes] = useState(initial?.notes ?? '');
-  const [days, setDays] = useState<DayRow[]>(initial ? daysFrom(initial) : [emptyDay()]);
-  const [weeks, setWeeks] = useState<WeekRow[]>(initial ? weeksFrom(initial) : resizeWeeks([], 4));
+  const [name, setName] = useState(d?.name ?? initial?.name ?? '');
+  const [focus, setFocus] = useState(d?.focus ?? initial?.focus ?? '');
+  const [description, setDescription] = useState(d?.description ?? initial?.description ?? '');
+  const [durationWeeks, setDurationWeeks] = useState(
+    d?.durationWeeks ?? String(initial?.duration_weeks ?? 4),
+  );
+  const [startDate, setStartDate] = useState(
+    d?.startDate ?? initial?.start_date?.slice(0, 10) ?? tomorrowISO(),
+  );
+  const [status, setStatus] = useState<ProgramStatus>(d?.status ?? initial?.status ?? 'active');
+  const [progressionRule, setProgressionRule] = useState(
+    d?.progressionRule ?? initial?.progression_rule ?? '',
+  );
+  const [tempoDefault, setTempoDefault] = useState(d?.tempoDefault ?? initial?.tempo_default ?? '');
+  const [notes, setNotes] = useState(d?.notes ?? initial?.notes ?? '');
+  const [days, setDays] = useState<DayRow[]>(
+    d?.days ?? (initial ? daysFrom(initial) : [emptyDay()]),
+  );
+  const [weeks, setWeeks] = useState<WeekRow[]>(
+    d?.weeks ?? (initial ? weeksFrom(initial) : resizeWeeks([], 4)),
+  );
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [headerAdv, setHeaderAdv] = useState(
@@ -417,6 +542,40 @@ export function ProgramBuilder({
         setCatalog([]);
       });
   }, []);
+
+  // Autosave. Debounced so typing doesn't hit localStorage on every keystroke;
+  // cleared only on a successful save (see submit) or an explicit discard.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      saveDraft<DraftData>(storageKey, {
+        name,
+        focus,
+        description,
+        durationWeeks,
+        startDate,
+        status,
+        progressionRule,
+        tempoDefault,
+        notes,
+        days,
+        weeks,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [
+    storageKey,
+    name,
+    focus,
+    description,
+    durationWeeks,
+    startDate,
+    status,
+    progressionRule,
+    tempoDefault,
+    notes,
+    days,
+    weeks,
+  ]);
 
   const byName = useMemo(() => {
     const m = new Map<string, Exercise>();
@@ -498,6 +657,14 @@ export function ProgramBuilder({
       return toast.error('Añade al menos un día con un ejercicio');
     }
 
+    // Catch out-of-range numbers here so the coach gets a field-level message
+    // instead of the database rejecting the whole save.
+    const invalid = validateProgram(days, weeks);
+    if (invalid) {
+      goTo(invalid.step);
+      return toast.error(invalid.message);
+    }
+
     const payload: SaveProgramInput = {
       name: nm,
       description: description.trim() || null,
@@ -539,9 +706,11 @@ export function ProgramBuilder({
         await createProgram(client!.id, payload);
         toast.success(`Programa asignado a ${firstName}`);
       }
+      clearDraft(storageKey); // saved for real — the autosave copy is obsolete
       onSaved();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo guardar el programa');
+      // PostgrestError is a plain object, so `instanceof Error` would hide it.
+      toast.error(errorMessage(e, 'No se pudo guardar el programa'));
     } finally {
       setSaving(false);
     }
@@ -589,6 +758,41 @@ export function ProgramBuilder({
         </div>
         <Stepper step={step} maxStep={maxStep} onStep={goTo} />
       </div>
+
+      {/* Recovered autosave — the coach should know why fields are pre-filled,
+          and be able to throw it away. */}
+      {restored != null && !draftDismissed && (
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-secondary/30 bg-secondary/[0.07] px-[22px] py-2 text-[12.5px]">
+          <RotateCcw className="h-3.5 w-3.5 flex-none text-secondary" strokeWidth={2} />
+          <span className="text-muted-foreground">
+            Recuperamos un borrador sin guardar de{' '}
+            <span className="font-semibold text-foreground">{draftAge(restored.savedAt)}</span>.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              clearDraft(storageKey);
+              setDraftDismissed(true);
+              // Back to a clean slate (or the saved program, when editing).
+              setName(initial?.name ?? '');
+              setFocus(initial?.focus ?? '');
+              setDescription(initial?.description ?? '');
+              setDurationWeeks(String(initial?.duration_weeks ?? 4));
+              setStartDate(initial?.start_date?.slice(0, 10) ?? tomorrowISO());
+              setStatus(initial?.status ?? 'active');
+              setProgressionRule(initial?.progression_rule ?? '');
+              setTempoDefault(initial?.tempo_default ?? '');
+              setNotes(initial?.notes ?? '');
+              setDays(initial ? daysFrom(initial) : [emptyDay()]);
+              setWeeks(initial ? weeksFrom(initial) : resizeWeeks([], 4));
+              setStep(0);
+            }}
+            className="font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Descartar borrador
+          </button>
+        </div>
+      )}
 
       <div className="p-[22px]">
         {/* Step 1 · Datos */}

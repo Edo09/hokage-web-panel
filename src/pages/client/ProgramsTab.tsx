@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -39,6 +39,7 @@ import { ProgramBuilder } from '@/components/program/ProgramBuilder';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { programToPreview } from '@/components/program/previewModel';
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
+import { draftKey, hasDraft } from '@/lib/programDraft';
 import { qk } from '@/lib/queryClient';
 import { cn, fmtDate } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -91,6 +92,13 @@ export function ProgramsTab({ client }: { client: ClientWithMeta }) {
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
   const [saveAsTemplate, setSaveAsTemplate] = useState<ProgramWithDetail | null>(null);
   const [previewing, setPreviewing] = useState<ProgramWithDetail | null>(null);
+  // An unsaved draft survives a refresh, but the coach can't see that until the
+  // builder is reopened — so advertise it on the button. Re-checked whenever the
+  // builder closes (it clears the draft on a successful save).
+  const draftWaiting = useMemo(
+    () => !builderOpen && !editing && hasDraft(draftKey(client.id, 'new')),
+    [builderOpen, editing, client.id],
+  );
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: qk.programs(client.id) });
@@ -147,7 +155,8 @@ export function ProgramsTab({ client }: { client: ClientWithMeta }) {
               setBuilderOpen(true);
             }}
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Crear programa
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            {draftWaiting ? 'Continuar borrador' : 'Crear programa'}
           </Button>
         </div>
       </div>

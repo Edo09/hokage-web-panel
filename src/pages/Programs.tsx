@@ -28,6 +28,7 @@ import { ProgramBuilder } from '@/components/program/ProgramBuilder';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { programToPreview } from '@/components/program/previewModel';
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
+import { draftKey, hasDraft } from '@/lib/programDraft';
 import { qk } from '@/lib/queryClient';
 import { cn, fmtDate } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
@@ -94,6 +95,12 @@ export default function Programs() {
   const [previewing, setPreviewing] = useState<ProgramWithDetail | null>(null);
   // Archived templates are retired clutter — kept, but out of the way.
   const [showArchived, setShowArchived] = useState(false);
+  // Surface a draft that survived a refresh — otherwise the coach assumes the
+  // work is gone and starts over.
+  const draftWaiting = useMemo(
+    () => !builderOpen && !editing && hasDraft(draftKey('template', 'new')),
+    [builderOpen, editing],
+  );
 
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: qk.programTemplates });
@@ -141,7 +148,8 @@ export default function Programs() {
               setBuilderOpen(true);
             }}
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Crear programa
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            {draftWaiting ? 'Continuar borrador' : 'Crear programa'}
           </Button>
         )}
       </div>
