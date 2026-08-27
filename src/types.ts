@@ -37,6 +37,9 @@ export interface Profile {
   calorie_goal: number | null;
   goal: ProfileGoal | null;
   account_type: 'coached' | 'solo';
+  /** Which app this profile belongs to — this panel lists 'hokage' only. Both
+   *  apps share one Supabase project (20260826120000_zyron_app_scope.sql). */
+  app: 'hokage' | 'zyron';
   role: UserRole;
   whatsapp: string | null;
   onboarding_completed: boolean;
