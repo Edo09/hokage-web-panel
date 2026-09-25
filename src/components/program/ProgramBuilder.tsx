@@ -100,6 +100,15 @@ const rangeText = (min: string, max: string): string => {
 
 /* ---- builder row models (all strings; parsed at submit) ---- */
 interface ExRow {
+  /** DB id of a row loaded from an existing program — sent back on save so
+   *  the RPC updates it in place and the client's logged sets stay attached.
+   *  Absent on rows added in the builder. */
+  id?: string;
+  /** The catalog link and name the row was loaded with. While the name is
+   *  unchanged the link is kept as-is on save, instead of re-resolving the
+   *  name — which would drop the link if the catalog failed to load. */
+  loadedExerciseId?: string | null;
+  loadedName?: string;
   name: string;
   sets: string;
   repMin: string;
@@ -116,6 +125,8 @@ interface ExRow {
   advOpen: boolean;
 }
 interface DayRow {
+  /** DB id when loaded from an existing program (see ExRow.id). */
+  id?: string;
   label: string;
   weekday: string;
   exercises: ExRow[];
@@ -291,12 +302,16 @@ const daysFrom = (p: ProgramWithDetail): DayRow[] =>
     : [...p.program_days]
         .sort((a, b) => a.day_index - b.day_index)
         .map((d) => ({
+          id: d.id,
           label: d.label ?? '',
           weekday: d.weekday ?? '',
           exercises:
             d.program_exercises.length === 0
               ? [emptyEx()]
               : d.program_exercises.map((e) => ({
+                  id: e.id,
+                  loadedExerciseId: e.exercise_id,
+                  loadedName: e.exercise?.name ?? e.custom_name ?? '',
                   name: e.exercise?.name ?? e.custom_name ?? '',
                   sets: String(e.sets),
                   repMin: e.rep_min != null ? String(e.rep_min) : '',
@@ -624,6 +639,7 @@ export function ProgramBuilder({
 
     const outDays: ProgramDayInput[] = days
       .map((d, di) => ({
+        id: d.id,
         day_index: di + 1,
         label: d.label.trim() || null,
         weekday: d.weekday || null,
@@ -631,10 +647,15 @@ export function ProgramBuilder({
         exercises: d.exercises
           .filter((x) => x.name.trim())
           .map((x, xi) => {
-            const match = byName.get(x.name.trim().toLowerCase());
+            // A catalog-linked row whose name the coach didn't touch keeps its
+            // link; everything else resolves by name (which also links a custom
+            // movement once it exists in the catalog).
+            const keptId = x.name.trim() === x.loadedName?.trim() ? (x.loadedExerciseId ?? null) : null;
+            const exerciseId = keptId ?? byName.get(x.name.trim().toLowerCase())?.id ?? null;
             return {
-              exercise_id: match?.id ?? null,
-              custom_name: match ? null : x.name.trim(),
+              id: x.id,
+              exercise_id: exerciseId,
+              custom_name: exerciseId ? null : x.name.trim(),
               sets: toInt(x.sets) ?? 3,
               rep_min: toInt(x.repMin),
               rep_max: toInt(x.repMax),

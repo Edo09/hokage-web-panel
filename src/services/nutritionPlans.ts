@@ -141,6 +141,10 @@ export interface NutritionItemInput {
 }
 
 export interface NutritionOptionInput {
+  /** The option's id when it already exists — save_nutrition_plan updates it
+   *  in place so diary entries registered from it stay linked (adherence).
+   *  Omit for a new option. */
+  id?: string;
   label: string | null;
   notes: string | null;
   sort_order: number;
@@ -148,6 +152,8 @@ export interface NutritionOptionInput {
 }
 
 export interface NutritionMealInput {
+  /** The slot's id when it already exists (kept across saves). Omit for new. */
+  id?: string;
   slot_index: number;
   label: string | null;
   meal_type: PlanMealType;
@@ -186,7 +192,10 @@ export interface SaveNutritionPlanInput {
   meals: NutritionMealInput[];
 }
 
-/** Create (planId null) or rewrite (id set) a nutrition plan atomically. */
+/** Create (planId null) or update (id set) a nutrition plan atomically.
+ *  Meals/options that carry their `id` are updated in place; the RPC deletes
+ *  only rows missing from the payload — see
+ *  supabase/migrations/20260925120000_plan_edits_keep_history.sql (mobile repo). */
 /** clientId null => save as a library TEMPLATE (no owner, invisible to clients). */
 async function saveNutritionPlan(
   planId: string | null,

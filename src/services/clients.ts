@@ -162,13 +162,10 @@ export async function listClientSummaries(): Promise<ClientSummary[]> {
     .from('profiles')
     .select('*, membership:memberships!client_id(*)')
     .eq('role', 'user')
-    // Only coach-managed clients — solo self-serve users share this DB but
-    // must not appear in the coach's roster (see 20260722120000_solo_account_type).
+    // Only coach-managed clients (see 20260722120000_solo_account_type). The
+    // project is Hokage-only since the Zyron split, so this is a guard, not a
+    // separator — there is no app column to scope on any more.
     .eq('account_type', 'coached')
-    // Only THIS app's clients. Zyron shares the same Supabase project, and its
-    // profiles default to account_type 'coached', so without this filter every
-    // Zyron user lands in the Hokage roster (20260826120000_zyron_app_scope).
-    .eq('app', 'hokage')
     .order('display_name', { ascending: true, nullsFirst: false });
   if (error) throw error;
 

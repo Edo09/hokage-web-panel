@@ -14,8 +14,10 @@ import type { ActivityItem, ExerciseCompletionWithContext, ProgramExerciseContex
 const PROGRAM_EXERCISE_CONTEXT =
   'program_exercise:program_exercises(id, sets, rep_min, rep_max, is_unilateral, rir_min, rir_max, load_pct_1rm, custom_name, exercise:exercises(name), program_day:program_days(label, program:programs(id, name)))';
 
-const exerciseNameOf = (pe: ProgramExerciseContext | null): string =>
-  pe?.exercise?.name ?? pe?.custom_name ?? 'un ejercicio';
+/** Live prescription name first; a log detached from a removed prescription
+ *  falls back to the name it was stamped with when logged. */
+const exerciseNameOf = (pe: ProgramExerciseContext | null, snapshot: string | null): string =>
+  pe?.exercise?.name ?? pe?.custom_name ?? snapshot ?? 'un ejercicio';
 
 /** All of a client's logged sets, newest first, with prescription context. */
 export async function getClientSetLogs(clientId: string): Promise<SetLogWithContext[]> {
@@ -44,6 +46,7 @@ export async function getClientCompletions(clientId: string): Promise<ExerciseCo
 
 interface ActivityRow {
   user_id: string;
+  exercise_name: string | null;
   profile: { display_name: string | null; email: string } | null;
   program_exercise: ProgramExerciseContext | null;
 }
@@ -62,13 +65,15 @@ export async function getRecentActivity(limit = 15): Promise<ActivityItem[]> {
   const [completionsRes, setLogsRes] = await Promise.all([
     supabase
       .from('program_exercise_completions')
-      .select(`user_id, completed_at, profile:profiles!user_id(display_name, email), ${PROGRAM_EXERCISE_CONTEXT}`)
+      .select(
+        `user_id, completed_at, exercise_name, profile:profiles!user_id(display_name, email), ${PROGRAM_EXERCISE_CONTEXT}`,
+      )
       .order('completed_at', { ascending: false })
       .limit(limit),
     supabase
       .from('workout_set_logs')
       .select(
-        `user_id, program_exercise_id, date, created_at, profile:profiles!user_id(display_name, email), ${PROGRAM_EXERCISE_CONTEXT}`,
+        `user_id, program_exercise_id, exercise_name, date, created_at, profile:profiles!user_id(display_name, email), ${PROGRAM_EXERCISE_CONTEXT}`,
       )
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
@@ -79,7 +84,7 @@ export async function getRecentActivity(limit = 15): Promise<ActivityItem[]> {
 
   const completions = (completionsRes.data ?? []) as unknown as (ActivityRow & { completed_at: string })[];
   const setLogs = (setLogsRes.data ?? []) as unknown as (ActivityRow & {
-    program_exercise_id: string;
+    program_exercise_id: string | null;
     date: string;
     created_at: string;
   })[];
@@ -88,22 +93,24 @@ export async function getRecentActivity(limit = 15): Promise<ActivityItem[]> {
     clientId: c.user_id,
     clientName: c.profile?.display_name ?? c.profile?.email ?? 'Cliente',
     kind: 'completion',
-    exerciseName: exerciseNameOf(c.program_exercise),
+    exerciseName: exerciseNameOf(c.program_exercise, c.exercise_name),
     at: c.completed_at,
   }));
 
   // One feed line per (client, exercise, date) session — rows arrive
   // date-DESC then created_at-DESC, so the first row per key is the latest.
+  // Detached logs have no prescription id; their snapshot name keys them
+  // instead, so two removed exercises logged the same day stay two lines.
   const seen = new Set<string>();
   for (const s of setLogs) {
-    const key = `${s.user_id}|${s.program_exercise_id}|${s.date}`;
+    const key = `${s.user_id}|${s.program_exercise_id ?? `name:${s.exercise_name ?? ''}`}|${s.date}`;
     if (seen.has(key)) continue;
     seen.add(key);
     items.push({
       clientId: s.user_id,
       clientName: s.profile?.display_name ?? s.profile?.email ?? 'Cliente',
       kind: 'set_log',
-      exerciseName: exerciseNameOf(s.program_exercise),
+      exerciseName: exerciseNameOf(s.program_exercise, s.exercise_name),
       at: s.date,
     });
   }

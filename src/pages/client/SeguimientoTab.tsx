@@ -35,7 +35,18 @@ interface ExGroup {
   best: { weight: number; reps: number; e1rm: number } | null;
 }
 
-function ensureGroup(map: Map<string, ExGroup>, key: string, pe: ProgramExerciseContext | null): ExGroup {
+/** Logs whose prescription the coach removed survive detached (null
+ *  program_exercise_id) and carry a snapshot of what they were — group those
+ *  by that name so each removed exercise keeps its own card. */
+const groupKey = (programExerciseId: string | null, snapshotName: string | null): string =>
+  programExerciseId ?? `removed:${snapshotName ?? ''}`;
+
+function ensureGroup(
+  map: Map<string, ExGroup>,
+  key: string,
+  pe: ProgramExerciseContext | null,
+  snapshot: { name: string | null; isUnilateral: boolean | null },
+): ExGroup {
   let g = map.get(key);
   if (!g) {
     const rir = repRange(pe?.rir_min ?? null, pe?.rir_max ?? null);
@@ -44,10 +55,10 @@ function ensureGroup(map: Map<string, ExGroup>, key: string, pe: ProgramExercise
     if (pe?.load_pct_1rm != null) parts.push(`${pe.load_pct_1rm}% 1RM`);
     g = {
       key,
-      name: pe?.exercise?.name ?? pe?.custom_name ?? 'Ejercicio',
-      program: pe?.program_day?.program?.name ?? null,
-      presc: parts.join(' · '),
-      isUnilateral: pe?.is_unilateral ?? false,
+      name: pe?.exercise?.name ?? pe?.custom_name ?? snapshot.name ?? 'Ejercicio',
+      program: pe ? (pe.program_day?.program?.name ?? null) : 'Ya no está en el programa',
+      presc: pe ? parts.join(' · ') : '—',
+      isUnilateral: pe?.is_unilateral ?? snapshot.isUnilateral ?? false,
       rirTarget: rir,
       sets: [],
       completedWeeks: [],
@@ -65,7 +76,10 @@ function buildGroups(
 ): ExGroup[] {
   const map = new Map<string, ExGroup>();
   for (const log of logs) {
-    const g = ensureGroup(map, log.program_exercise_id, log.program_exercise);
+    const g = ensureGroup(map, groupKey(log.program_exercise_id, log.exercise_name), log.program_exercise, {
+      name: log.exercise_name,
+      isUnilateral: log.is_unilateral,
+    });
     g.sets.push(log);
     // Bare 'YYYY-MM-DD' — fine for RELATIVE ordering (grouping sort only,
     // never displayed), unlike the display-path bug fixed in the summary below.
@@ -77,12 +91,17 @@ function buildGroups(
     }
   }
   for (const c of completions) {
-    const g = ensureGroup(map, c.program_exercise_id, c.program_exercise);
+    const g = ensureGroup(map, groupKey(c.program_exercise_id, c.exercise_name), c.program_exercise, {
+      name: c.exercise_name,
+      isUnilateral: null,
+    });
     g.completedWeeks.push(c.week_number);
     const t = new Date(c.completed_at).getTime(); // real timestamptz instant
     if (t > g.lastDate) g.lastDate = t;
   }
-  for (const g of map.values()) g.completedWeeks.sort((a, b) => a - b);
+  // Deduped: detached rows of the same lift (e.g. prescribed on two days of a
+  // program the coach later deleted) share one card and can repeat a week.
+  for (const g of map.values()) g.completedWeeks = [...new Set(g.completedWeeks)].sort((a, b) => a - b);
   return [...map.values()].sort((a, b) => b.lastDate - a.lastDate);
 }
 

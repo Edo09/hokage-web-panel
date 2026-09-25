@@ -127,6 +127,9 @@ export async function assignTemplate(
 /* ---------------- writes ---------------- */
 
 export interface ProgramExerciseInput {
+  /** The row's id when it already exists — save_coach_program updates it in
+   *  place so the client's logged sets stay attached. Omit for a new row. */
+  id?: string;
   exercise_id: string | null;
   custom_name: string | null;
   sets: number;
@@ -144,6 +147,8 @@ export interface ProgramExerciseInput {
 }
 
 export interface ProgramDayInput {
+  /** The day's id when it already exists (kept across saves). Omit for new. */
+  id?: string;
   day_index: number;
   label: string | null;
   /** Stored lowercase English ('monday'..'sunday'), or null for "Día N" only. */
@@ -178,7 +183,10 @@ export interface SaveProgramInput {
   weeks: ProgramWeekInput[];
 }
 
-/** Create (programId null) or rewrite (id set) a coach program atomically. */
+/** Create (programId null) or update (id set) a coach program atomically.
+ *  Days/exercises that carry their `id` are updated in place; the RPC deletes
+ *  only rows missing from the payload, and their logs survive detached — see
+ *  supabase/migrations/20260925120000_plan_edits_keep_history.sql (mobile repo). */
 /** clientId null => save as a library TEMPLATE (no owner, invisible to clients). */
 async function saveCoachProgram(
   programId: string | null,

@@ -37,9 +37,6 @@ export interface Profile {
   calorie_goal: number | null;
   goal: ProfileGoal | null;
   account_type: 'coached' | 'solo';
-  /** Which app this profile belongs to — this panel lists 'hokage' only. Both
-   *  apps share one Supabase project (20260826120000_zyron_app_scope.sql). */
-  app: 'hokage' | 'zyron';
   role: UserRole;
   whatsapp: string | null;
   onboarding_completed: boolean;
@@ -253,7 +250,12 @@ export interface ProgramWithDetail extends Program {
 export interface WorkoutSetLog {
   id: string;
   user_id: string;
-  program_exercise_id: string;
+  /** null once the coach removed the prescription — the log survives,
+   *  detached, and is labelled by the snapshot below. */
+  program_exercise_id: string | null;
+  /** Snapshot stamped when the set was logged (20260925120000). */
+  exercise_name: string | null;
+  is_unilateral: boolean | null;
   week_number: number;
   date: string; // ISO date
   set_index: number;
@@ -293,7 +295,10 @@ export interface SetLogWithContext extends WorkoutSetLog {
 export interface ExerciseCompletion {
   id: string;
   user_id: string;
-  program_exercise_id: string;
+  /** null once the coach removed the prescription (see WorkoutSetLog). */
+  program_exercise_id: string | null;
+  /** Snapshot stamped when the check-off was made (20260925120000). */
+  exercise_name: string | null;
   week_number: number;
   completed_at: string;
   created_at: string;

@@ -92,11 +92,17 @@ interface FoodRow {
   dayType: DayType;
 }
 interface OptionRow {
+  /** DB id of an option loaded from an existing plan — sent back on save so
+   *  the RPC updates it in place and diary entries registered from it stay
+   *  linked. Absent on options added in the builder. */
+  id?: string;
   label: string;
   notes: string;
   foods: FoodRow[];
 }
 interface MealRow {
+  /** DB id when loaded from an existing plan (see OptionRow.id). */
+  id?: string;
   label: string;
   mealType: PlanMealType;
   timeHint: string;
@@ -173,6 +179,7 @@ const mealsFrom = (p: NutritionPlanWithDetail): MealRow[] =>
     : [...p.nutrition_plan_meals]
         .sort((a, b) => a.sort_order - b.sort_order || a.slot_index - b.slot_index)
         .map((m) => ({
+          id: m.id,
           label: m.label ?? '',
           mealType: m.meal_type,
           timeHint: m.time_hint ?? '',
@@ -186,6 +193,7 @@ const mealsFrom = (p: NutritionPlanWithDetail): MealRow[] =>
               : [...m.nutrition_plan_options]
                   .sort((a, b) => a.sort_order - b.sort_order)
                   .map((o) => ({
+                    id: o.id,
                     label: o.label ?? '',
                     notes: o.notes ?? '',
                     foods:
@@ -460,6 +468,7 @@ export function NutritionPlanBuilder({
 
     const outMeals: NutritionMealInput[] = meals
       .map((m, mi) => ({
+        id: m.id,
         slot_index: mi + 1,
         label: m.label.trim() || null,
         meal_type: m.mealType,
@@ -471,6 +480,7 @@ export function NutritionPlanBuilder({
         options: m.options
           .filter((o) => o.foods.some((f) => f.name.trim()))
           .map((o, oi) => ({
+            id: o.id,
             label: o.label.trim() || null,
             notes: o.notes.trim() || null,
             sort_order: oi,
