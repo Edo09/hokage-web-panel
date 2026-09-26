@@ -24,18 +24,21 @@ Run in the Supabase SQL editor, against the **mobile app's** `supabase/migration
 - `20260717150100_memberships_one_per_client.sql` — unique constraint on `memberships.client_id`, so the panel's membership edits update one row instead of piling up duplicates.
 - Everything from the coaching-platform migration set (`20260707120000_coaching_platform.sql`, `20260708120000_exercise_catalog.sql`, …) — RLS, `is_coach()`, the exercise catalog.
 
-## Deploy the account-creation function
+## Deploy the account functions
 
-Creating a client login needs the Supabase service-role key, which never touches this SPA — it's isolated in an Edge Function (`supabase/functions/create-client/index.ts`, in the mobile app repo):
+Creating a client login and resetting a forgotten password need the Supabase service-role key, which never touches this SPA — they're isolated in two Edge Functions in the mobile app repo (`supabase/functions/create-client` and `supabase/functions/reset-client-password`). From that repo:
 
 ```bash
-supabase functions deploy create-client
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service role key>
+supabase functions deploy create-client         --project-ref rzgwkwxskrovxnnymxqo
+supabase functions deploy reset-client-password --project-ref rzgwkwxskrovxnnymxqo
+# This panel's deployed origin(s), comma-separated, no trailing slash
+# (add http://localhost:5173 only to use `npm run dev` against this project):
+supabase secrets set ALLOWED_ORIGINS=https://<panel-domain> --project-ref rzgwkwxskrovxnnymxqo
 ```
 
-Until this is deployed, "Añadir cliente" will fail.
+The service-role key is provided to functions automatically. Until the functions are deployed and `ALLOWED_ORIGINS` includes this panel's origin, "Añadir cliente" and "Restablecer contraseña" fail.
 
-The function generates a **one-time temporary password** and returns it to the panel, which shows it once (copy button) for the coach to share with the client over WhatsApp. The client signs in with it and changes it in the app's **Ajustes → Cambiar contraseña**. No email delivery is involved anywhere in this flow.
+Both functions return a **one-time temporary password** that the panel shows once (copy button) for the coach to share with the client over WhatsApp. The client signs in with it and changes it in the app's **Ajustes → Cambiar contraseña**. No email delivery is involved anywhere in this flow; a client who forgot their password asks the coach, who uses **Restablecer contraseña** on the client's page.
 
 ## What's inside
 

@@ -290,6 +290,21 @@ export async function createClient(input: {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Gives a client who forgot their password a new one-time temporary
+ *  password, via the reset-client-password Edge Function (service role, like
+ *  createClient). The old password stops working immediately. */
+export async function resetClientPassword(clientId: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke<{
+    temp_password?: string;
+    error?: string;
+  }>('reset-client-password', {
+    body: { user_id: clientId },
+  });
+  if (error) throw new Error(error.message);
+  if (!data?.temp_password) throw new Error(data?.error ?? 'No se pudo restablecer la contraseña.');
+  return data.temp_password;
+}
+
 export async function updateClient(id: string, patch: Partial<Client>): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', id);
   if (error) throw error;

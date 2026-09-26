@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, UserX } from 'lucide-react';
+import { ChevronLeft, KeyRound, UserX } from 'lucide-react';
 import { getClient } from '@/services/clients';
 import { qk } from '@/lib/queryClient';
 import { activityLabel, avatarColor } from '@/lib/utils';
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar } from '@/components/shared/Avatar';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { ResetPasswordDialog } from '@/components/shared/ResetPasswordDialog';
 import { OverviewTab } from './OverviewTab';
 import { ProgramsTab } from './ProgramsTab';
 import { SeguimientoTab } from './SeguimientoTab';
@@ -34,6 +36,7 @@ export default function ClientDetail() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { unit } = useWeightUnit();
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Keyed by id, so switching clients swaps queries (and shows the skeleton)
   // automatically — no manual reset needed. `null` from getClient = missing.
@@ -114,7 +117,17 @@ export default function ClientDetail() {
                 </span>
               </div>
             </div>
+            <Button variant="outline" size="sm" onClick={() => setResetOpen(true)}>
+              <KeyRound className="h-3.5 w-3.5" strokeWidth={2} />
+              Restablecer contraseña
+            </Button>
           </Card>
+          <ResetPasswordDialog
+            open={resetOpen}
+            onOpenChange={setResetOpen}
+            clientName={client.display_name ?? client.email}
+            clientId={client.id}
+          />
 
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList aria-label="Secciones del cliente">
