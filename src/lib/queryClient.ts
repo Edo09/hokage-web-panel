@@ -36,4 +36,6 @@ export const qk = {
   completions: (clientId: string) => ['completions', clientId] as const,
   measurements: (clientId: string) => ['measurements', clientId] as const,
   recentActivity: ['recent-activity'] as const,
+  rosterActivity: ['roster-activity'] as const,
+  supplementDays: (clientId: string) => ['supplement-days', clientId] as const,
 };

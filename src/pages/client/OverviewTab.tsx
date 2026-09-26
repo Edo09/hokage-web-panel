@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ClientPulse } from './ClientPulse';
 
 const TONE_CLASS = {
   normal: 'text-foreground',
@@ -184,6 +185,8 @@ export function OverviewTab({
   const per = client.membership?.plan_name?.includes('Trimestral') ? ' / trim' : ' / mes';
 
   return (
+    <div className="flex flex-col gap-4">
+    <ClientPulse client={client} onGoTab={onGoTab} />
     <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
       <Card>
         <CardHeader>
@@ -248,6 +251,7 @@ export function OverviewTab({
       </Card>
 
       <TrainingPlanCard client={client} onChanged={onChanged} />
+    </div>
     </div>
   );
 }

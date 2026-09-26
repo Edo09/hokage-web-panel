@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, KeyRound, UserX } from 'lucide-react';
+import { ChevronLeft, KeyRound, MessageCircle, UserX } from 'lucide-react';
 import { getClient } from '@/services/clients';
 import { qk } from '@/lib/queryClient';
-import { activityLabel, avatarColor } from '@/lib/utils';
+import { activityLabel, avatarColor, cn, fmtShort, initials } from '@/lib/utils';
 import { useWeightUnit } from '@/hooks/useWeightUnit';
 import { formatWeight } from '@/lib/weightUnit';
 import { Card } from '@/components/ui/card';
@@ -45,6 +45,7 @@ export default function ClientDetail() {
     queryFn: () => getClient(id!),
     enabled: !!id,
   });
+  const whatsapp = (client?.whatsapp ?? '').replace(/\D/g, '');
 
   const requestedTab = searchParams.get('tab') ?? 'overview';
   // Fall back to overview for a removed/unknown tab (e.g. an old ?tab=workouts link).
@@ -90,18 +91,33 @@ export default function ClientDetail() {
         <>
           {/* Header card */}
           <Card className="flex flex-wrap items-center gap-[18px] p-[22px]">
-            <Avatar
-              name={client.display_name}
-              color={avatarColor(client.id)}
-              size={64}
-              radiusClass="rounded-[20px] font-heading"
-            />
+            <span className="legacy:contents hidden">
+              <Avatar
+                name={client.display_name}
+                color={avatarColor(client.id)}
+                size={64}
+                radiusClass="rounded-[20px] font-heading"
+              />
+            </span>
+            {/* Poster: the app's skewed red tile with the initials upright. */}
+            <span
+              aria-hidden="true"
+              className="hidden h-[76px] w-[76px] flex-none -skew-x-[8deg] items-center justify-center bg-primary text-primary-foreground poster:flex"
+            >
+              <span className="skew-x-[8deg] font-poster text-[32px]">{initials(client.display_name ?? client.email)}</span>
+            </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="font-heading text-[19px] font-semibold">{client.display_name ?? client.email}</span>
+                <span className={cn('font-heading text-[19px] font-semibold', 'poster:text-[34px] poster:leading-none')}>
+                  {client.display_name ?? client.email}
+                </span>
                 {client.membership && <StatusBadge status={client.membership.status} />}
               </div>
-              <div className="mt-0.5 text-[12.5px] text-faint">{client.email}</div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-[12.5px] text-faint">
+                <span className="hidden h-[3px] w-[22px] bg-primary poster:block" aria-hidden="true" />
+                <span>{client.email}</span>
+                {client.created_at && <span>· cliente desde {fmtShort(client.created_at)}</span>}
+              </div>
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
                   {client.age ?? '—'} años
@@ -117,6 +133,14 @@ export default function ClientDetail() {
                 </span>
               </div>
             </div>
+            {whatsapp && (
+              <Button variant="outline" size="sm" asChild className="border-success/60 text-success hover:bg-success/10">
+                <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
+                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} />
+                  WhatsApp
+                </a>
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setResetOpen(true)}>
               <KeyRound className="h-3.5 w-3.5" strokeWidth={2} />
               Restablecer contraseña

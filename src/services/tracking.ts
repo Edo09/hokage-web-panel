@@ -62,6 +62,22 @@ export async function getClientMeasurements(clientId: string): Promise<BodyMeasu
   return (data ?? []) as BodyMeasurement[];
 }
 
+/** Days (YYYY-MM-DD) on which the client ticked at least one supplement in the
+ *  app, since `sinceKey`. Empty on a database without supplement_intake_logs
+ *  (hokage-coaching-app migration 20260926120000) rather than an error. */
+export async function getClientSupplementDays(clientId: string, sinceKey: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('supplement_intake_logs')
+    .select('taken_on')
+    .eq('user_id', clientId)
+    .gte('taken_on', sinceKey);
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205') return [];
+    throw error;
+  }
+  return [...new Set(((data ?? []) as { taken_on: string }[]).map((r) => r.taken_on))];
+}
+
 interface ActivityRow {
   user_id: string;
   exercise_name: string | null;

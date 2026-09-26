@@ -1,9 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, CreditCard, Dumbbell, Plus, Users } from 'lucide-react';
+import { Activity, AlertCircle, Dumbbell, Medal, Plus, Users } from 'lucide-react';
 import { getClientTrend, listClientSummaries } from '@/services/clients';
 import { getRecentActivity } from '@/services/tracking';
+import { getRosterActivity } from '@/services/insights';
+import { buildAttention, buildPulse, lastDays, weeklyAdherence } from '@/lib/insights';
+import { AttentionList, ConsistencyGrid } from '@/components/dashboard/AttentionPanels';
 import { qk } from '@/lib/queryClient';
 import { avatarColor, daysDiff, monthAbbr, relTime } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +30,7 @@ export default function Dashboard() {
   const clientsQuery = useQuery({ queryKey: qk.clientSummaries, queryFn: listClientSummaries });
   const trendQuery = useQuery({ queryKey: qk.clientTrend, queryFn: getClientTrend });
   const activityQuery = useQuery({ queryKey: qk.recentActivity, queryFn: () => getRecentActivity() });
+  const rosterQuery = useQuery({ queryKey: qk.rosterActivity, queryFn: getRosterActivity });
   const queryClient = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
@@ -34,7 +38,11 @@ export default function Dashboard() {
   const clients = clientsQuery.data;
   const trend = trendQuery.data ?? [];
   const activity = activityQuery.data;
-  const isError = clientsQuery.isError || trendQuery.isError || activityQuery.isError;
+  const isError = clientsQuery.isError || trendQuery.isError || activityQuery.isError || rosterQuery.isError;
+
+  // Per-client training/nutrition facts → the attention list and grid.
+  const pulse = useMemo(() => (rosterQuery.data ? buildPulse(rosterQuery.data) : null), [rosterQuery.data]);
+  const attention = useMemo(() => (clients && pulse ? buildAttention(clients, pulse) : null), [clients, pulse]);
 
   const onCreated = () => {
     void queryClient.invalidateQueries({ queryKey: qk.clientSummaries });
@@ -65,27 +73,24 @@ export default function Dashboard() {
       const d = daysDiff(c.membership.expires_at);
       return d >= 0 && d <= 7;
     });
-    const allLogs = clients.flatMap((c) =>
-      c.logs.map((l) => ({
-        clientId: c.id,
-        clientName: c.display_name ?? c.email,
-        routine: l.routine_name,
-        date: new Date(l.date).getTime(),
-        dateIso: l.date,
-      })),
-    );
-    const weekLogs = allLogs.filter((l) => daysDiff(l.dateIso) > -7).length;
-
-    const weekBars: WeekBar[] = Array.from({ length: 8 }, (_, i) => {
-      const value = allLogs.filter((l) => {
-        const d = -daysDiff(l.dateIso);
-        return d >= (7 - i) * 7 - 6 && d <= (7 - i) * 7;
-      }).length;
-      return { label: i === 7 ? 'Esta' : `-${7 - i} sem`, value, current: i === 7 };
+    // Training days (program sets/check-offs + legacy routine logs), one per
+    // client per day — the old count only saw legacy routine logs.
+    const clientDays: string[] = [];
+    for (const p of pulse?.values() ?? []) clientDays.push(...p.activeDays);
+    const weekStarts = Array.from({ length: 8 }, (_, i) => lastDays(7 * (8 - i))[0]);
+    const weekBars: WeekBar[] = weekStarts.map((start, i) => {
+      const end = i === 7 ? '9999' : weekStarts[i + 1];
+      return {
+        label: i === 7 ? 'Esta' : `-${7 - i} sem`,
+        value: clientDays.filter((d) => d >= start && d < end).length,
+        current: i === 7,
+      };
     });
+    const adherence = pulse ? weeklyAdherence(pulse) : null;
+    const records = [...(pulse?.values() ?? [])].filter((p) => p.record).length;
 
-    return { active, paused, expiring, weekLogs, weekBars };
-  }, [clients]);
+    return { active, paused, expiring, weekBars, adherence, records };
+  }, [clients, pulse]);
 
   // Feed merges legacy routine completions (workout_logs, via summaries) with
   // PROGRAM activity (exercise check-offs + set logs) — the latter was the gap:
@@ -127,6 +132,7 @@ export default function Dashboard() {
             onClick={() => {
               void clientsQuery.refetch();
               void trendQuery.refetch();
+              void rosterQuery.refetch();
             }}
             className="mt-1"
           >
@@ -146,18 +152,32 @@ export default function Dashboard() {
         ) : (
           <>
             <StatTile
-              label="Clientes"
-              value={clients.length}
-              sub={`${stats.active.length} con membresía activa`}
-              subTone="success"
+              label="Clientes activos"
+              value={stats.active.length}
+              sub={`${clients.length} en total · ${stats.paused.length} en pausa`}
               icon={Users}
               tone="primary"
             />
             <StatTile
-              label="Membresías activas"
-              value={stats.active.length}
-              sub={`${stats.paused.length} en pausa`}
-              icon={CreditCard}
+              label="Adherencia · 7 días"
+              value={
+                stats.adherence && stats.adherence.planned > 0
+                  ? `${Math.round((stats.adherence.done / stats.adherence.planned) * 100)} %`
+                  : '—'
+              }
+              sub={
+                stats.adherence && stats.adherence.planned > 0
+                  ? `${stats.adherence.done} de ${stats.adherence.planned} sesiones del plan`
+                  : 'Sin programas activos'
+              }
+              icon={Activity}
+              tone="success"
+            />
+            <StatTile
+              label="Récords esta semana"
+              value={pulse ? stats.records : '—'}
+              sub="clientes que superaron su mejor marca"
+              icon={Medal}
               tone="secondary"
             />
             <StatTile
@@ -168,15 +188,14 @@ export default function Dashboard() {
               icon={AlertCircle}
               tone="warning"
             />
-            <StatTile
-              label="Entrenos esta semana"
-              value={stats.weekLogs}
-              sub="entre todos los clientes"
-              icon={Dumbbell}
-              tone="success"
-            />
           </>
         )}
+      </div>
+
+      {/* What needs the coach today + who's showing up */}
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+        <AttentionList items={attention} loading={clientsQuery.isPending || rosterQuery.isPending} />
+        <ConsistencyGrid clients={clients} pulse={pulse} loading={clientsQuery.isPending || rosterQuery.isPending} />
       </div>
 
       {/* Charts */}
@@ -249,9 +268,9 @@ export default function Dashboard() {
                 Añadir cliente
               </Button>
               <Button variant="outline" className="justify-start" asChild>
-                <Link to="/clients">
+                <Link to="/programs">
                   <Dumbbell className="h-3.5 w-3.5" strokeWidth={1.8} />
-                  Asignar rutina
+                  Crear programa
                 </Link>
               </Button>
             </CardContent>
