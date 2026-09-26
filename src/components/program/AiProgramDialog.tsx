@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { generateProgram } from '@/services/aiProgram';
+import { AiProgramError, generateProgram } from '@/services/aiProgram';
 import { aiToDraft, draftToAi } from '@/components/program/aiModel';
 import type { ProgramBuilderState } from '@/components/program/useProgramBuilder';
 
@@ -106,7 +106,10 @@ export function AiProgramDialog({
         });
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo generar el programa');
+      toast.error(e instanceof Error ? e.message : 'No se pudo generar el programa', {
+        description: e instanceof AiProgramError && e.detail ? `Detalle: ${e.detail.slice(0, 300)}` : undefined,
+        duration: 15_000,
+      });
     } finally {
       setBusy(false);
     }

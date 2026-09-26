@@ -19,6 +19,17 @@ export interface GenerateProgramInput {
   includeNotes: boolean;
 }
 
+/** A failure the coach should see, with the provider's own error text (if
+ *  any) for the "why" — shown under the message. */
+export class AiProgramError extends Error {
+  constructor(
+    message: string,
+    readonly detail?: string,
+  ) {
+    super(message);
+  }
+}
+
 const STATUS_MESSAGES: Record<string, string> = {
   unauthenticated: 'Tu sesión expiró. Vuelve a iniciar sesión.',
   forbidden: 'Solo el coach puede generar programas.',
@@ -38,8 +49,8 @@ export async function generateProgram(input: GenerateProgramInput): Promise<unkn
   if (error) {
     // A non-2xx carries the function's own (Spanish) message in its body.
     if (error instanceof FunctionsHttpError) {
-      const body = (await (error.context as Response).json().catch(() => null)) as { error?: string } | null;
-      if (body?.error) throw new Error(STATUS_MESSAGES[body.error] ?? body.error);
+      const body = (await (error.context as Response).json().catch(() => null)) as { error?: string; detail?: string } | null;
+      if (body?.error) throw new AiProgramError(STATUS_MESSAGES[body.error] ?? body.error, body.detail);
       // No JSON body: the gateway cut the request off (usually a timeout).
       throw new Error('La IA tardó demasiado en responder. Intenta de nuevo, o pide un programa más corto.');
     }
