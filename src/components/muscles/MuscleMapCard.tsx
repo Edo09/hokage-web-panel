@@ -10,36 +10,40 @@ import { BodyFigure } from '@/components/muscles/BodyFigure';
 import { assignedSets, doneSets, GROUP_LABEL, GROUP_ORDER, programWeekNow, type MuscleGroup } from '@/lib/muscleMap';
 
 /**
- * Where a group stands in the chosen week. One colour per state, so the
- * figure alone answers "what's assigned, and what did they do?".
+ * Three colours, one question each: is the group assigned this week, and
+ * has the client worked it? Worked (any set) wins over assigned. Red is the
+ * same "trained" red the client sees in the app's Progreso heat map.
  */
-type GroupState = 'none' | 'pending' | 'partial' | 'done' | 'short';
+type MapColor = 'unassigned' | 'assigned' | 'worked';
 
-const STATE: Record<GroupState, { color: string; label: string }> = {
-  none: { color: 'hsl(var(--border-strong))', label: 'No asignado' },
-  pending: { color: 'hsl(var(--primary) / 0.26)', label: 'Asignado, sin hacer' },
-  partial: { color: 'hsl(var(--primary) / 0.62)', label: 'A medias' },
-  done: { color: 'hsl(var(--primary))', label: 'Completado' },
-  short: { color: 'hsl(var(--warning))', label: 'Se quedó corto' },
+const MAP: Record<MapColor, { color: string; label: string }> = {
+  unassigned: { color: 'hsl(var(--border-strong))', label: 'Sin asignar' },
+  assigned: { color: 'hsl(var(--secondary))', label: 'Asignado, sin trabajar' },
+  worked: { color: 'hsl(var(--primary))', label: 'Trabajado' },
 };
+
+const mapColorOf = (assigned: number, done: number): MapColor =>
+  done > 0 ? 'worked' : assigned > 0 ? 'assigned' : 'unassigned';
 
 type WeekStatus = 'past' | 'current' | 'future';
 
-/** "Se quedó corto" only once the week is over — mid-week everything is
- *  still pending, and that's not a problem yet. */
-function stateOf(assigned: number, done: number, week: WeekStatus): GroupState {
-  if (assigned === 0) return done > 0 ? 'done' : 'none';
-  if (done >= assigned) return 'done';
-  if (week === 'past' && done < 0.5 * assigned) return 'short';
-  return done === 0 ? 'pending' : 'partial';
+/** How far along a group is, in words, for the list (the figure only says
+ *  worked or not). "Se quedó corto" only once the week is over. */
+function progressText(assigned: number, done: number, week: WeekStatus): string {
+  if (week === 'future') return 'Por hacer';
+  if (assigned === 0) return 'Extra, no asignado';
+  if (done >= assigned) return 'Completado';
+  if (done === 0) return week === 'past' ? 'No lo trabajó' : 'Sin trabajar';
+  return week === 'past' && done < 0.5 * assigned ? 'Se quedó corto' : 'A medias';
 }
 
 const series = (n: number) => `${n} ${n === 1 ? 'serie' : 'series'}`;
 
 /**
  * The client's muscles for one week of their active program. Each muscle's
- * colour says whether it's assigned that week and how much of it they did
- * (see STATE); the list beside the figures names every group with its sets.
+ * colour says whether it's assigned that week and whether they've worked it
+ * (see MAP); the list beside the figures names every group with its sets
+ * and how far along it is.
  * Hovering a muscle or a row describes it; clicking picks it, fading the
  * rest.
  *
@@ -89,11 +93,10 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
 
   const a = (g: MuscleGroup) => assigned.get(g) ?? 0;
   const d = (g: MuscleGroup) => done.get(g) ?? 0;
-  const state = (g: MuscleGroup) => stateOf(a(g), d(g), weekStatus);
+  const color = (g: MuscleGroup) => mapColorOf(a(g), d(g));
   const rows = GROUP_ORDER.filter((g) => a(g) > 0 || d(g) > 0);
   const totalA = rows.reduce((s, g) => s + a(g), 0);
   const totalD = rows.reduce((s, g) => s + d(g), 0);
-  const usedStates = new Set<GroupState>(['none', ...rows.map(state)]);
 
   const gender = client.sex === 'female' ? 'female' : 'male';
   const pick = (g: MuscleGroup | null) => setSelected((cur) => (g == null || g === cur ? null : g));
@@ -154,7 +157,7 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
                 gender={gender}
                 side={side}
                 label={`Músculos de ${firstName}, ${side === 'front' ? 'frente' : 'espalda'}`}
-                fillFor={(g) => STATE[state(g)].color}
+                fillFor={(g) => MAP[color(g)].color}
                 fadedFor={(g) => selected != null && g !== selected}
                 onHover={setHovered}
                 onPick={pick}
@@ -198,7 +201,6 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
               </thead>
               <tbody>
                 {rows.map((g) => {
-                  const st = state(g);
                   const active = selected === g;
                   return (
                     <tr
@@ -217,16 +219,16 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
                             active ? 'font-bold' : 'font-medium',
                           )}
                         >
-                          <span className="h-3 w-3 flex-none" style={{ background: STATE[st].color }} aria-hidden="true" />
+                          <span className="h-3 w-3 flex-none" style={{ background: MAP[color(g)].color }} aria-hidden="true" />
                           {GROUP_LABEL[g]}
                         </button>
                       </td>
                       <td className="py-2 text-right tabular-nums">{a(g)}</td>
-                      <td className={cn('py-2 text-right font-semibold tabular-nums', st === 'short' && 'text-warning')}>
+                      <td className="py-2 text-right font-semibold tabular-nums">
                         {weekStatus === 'future' ? '—' : d(g)}
                       </td>
-                      <td className={cn('py-2 pl-4 text-[12px]', st === 'short' ? 'text-warning' : 'text-muted-foreground')}>
-                        {weekStatus === 'future' ? 'Por hacer' : STATE[st].label}
+                      <td className="py-2 pl-4 text-[12px] text-muted-foreground">
+                        {progressText(a(g), d(g), weekStatus)}
                       </td>
                     </tr>
                   );
@@ -236,16 +238,13 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
           )}
 
           {/* Legend: what each colour means */}
-          <ul className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11.5px] text-muted-foreground">
-            {(Object.keys(STATE) as GroupState[])
-              .filter((s) => usedStates.has(s) || s === 'pending' || s === 'done')
-              .map((s) => (
-                <li key={s} className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 flex-none" style={{ background: STATE[s].color }} aria-hidden="true" />
-                  {STATE[s].label}
-                  {s === 'short' && ' (menos de la mitad)'}
-                </li>
-              ))}
+          <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-[12px] text-muted-foreground">
+            {(Object.keys(MAP) as MapColor[]).map((c) => (
+              <li key={c} className="flex items-center gap-1.5">
+                <span className="h-3 w-3 flex-none" style={{ background: MAP[c].color }} aria-hidden="true" />
+                {MAP[c].label}
+              </li>
+            ))}
           </ul>
           <p className="text-[11.5px] text-faint">
             Hecho cuenta cada serie registrada; un ejercicio marcado como hecho sin series registradas cuenta sus series
