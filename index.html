@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es" class="dark" data-design="poster">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/jpeg" href="/logo.jpg" />
@@ -8,14 +8,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
     <script>
-      // Apply persisted theme before first paint (dark is the default).
+      // Apply persisted theme + design before first paint (dark / poster are
+      // the defaults; 'legacy' is the deprecated original look).
       try {
         if (localStorage.getItem('hokage:theme') === 'light') {
           document.documentElement.classList.remove('dark');
+        }
+        if (localStorage.getItem('hokage:design') === 'legacy') {
+          document.documentElement.dataset.design = 'legacy';
         }
       } catch (e) {}
     </script>

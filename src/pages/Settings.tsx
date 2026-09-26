@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Phone, Scale } from 'lucide-react';
+import { Palette, Phone, Scale } from 'lucide-react';
 import { useCoach } from '@/hooks/useCoach';
 import { useWeightUnit } from '@/hooks/useWeightUnit';
+import { useDesign, type Design } from '@/hooks/useDesign';
 import { cn, initials } from '@/lib/utils';
 import type { WeightUnit } from '@/lib/weightUnit';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,9 +16,15 @@ const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
   { value: 'lb', label: 'Libras (lb)' },
 ];
 
+const DESIGNS: { value: Design; label: string }[] = [
+  { value: 'poster', label: 'Nuevo (Dojo)' },
+  { value: 'legacy', label: 'Clásico (legacy)' },
+];
+
 export default function Settings() {
   const { coach, save } = useCoach();
   const { unit, setUnit } = useWeightUnit();
+  const { design, setDesign } = useDesign();
   const [name, setName] = useState(coach.display_name);
   const [whatsapp, setWhatsapp] = useState(coach.whatsapp);
   const [saving, setSaving] = useState(false);
@@ -131,6 +138,47 @@ export default function Settings() {
                   )}
                 >
                   {u.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Estilo del panel</CardTitle>
+          <CardDescription>
+            El estilo nuevo usa el mismo diseño que la app. El clásico queda disponible temporalmente y se
+            retirará más adelante.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-primary/10 text-primary dark:bg-primary/15"
+            >
+              <Palette className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            </span>
+            <div
+              role="radiogroup"
+              aria-label="Estilo del panel"
+              className="flex flex-1 gap-1.5 rounded-xl border border-border bg-muted p-1"
+            >
+              {DESIGNS.map((d) => (
+                <button
+                  key={d.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={design === d.value}
+                  onClick={() => setDesign(d.value)}
+                  className={cn(
+                    'flex-1 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    design === d.value ? 'bg-card text-foreground shadow-card' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {d.label}
                 </button>
               ))}
             </div>

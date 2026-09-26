@@ -6,6 +6,9 @@ import { TopBar } from './TopBar';
 const TITLES: [prefix: string, title: string][] = [
   ['/clients/', 'Cliente'],
   ['/clients', 'Clientes'],
+  ['/programs', 'Programas'],
+  ['/nutrition', 'Nutrición'],
+  ['/exercises', 'Ejercicios'],
   ['/memberships', 'Membresías'],
   ['/settings', 'Ajustes'],
   ['/', 'Panel'],

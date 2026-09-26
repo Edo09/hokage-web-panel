@@ -155,7 +155,6 @@ export default function Programs() {
     <div className="flex animate-fade-up flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-heading text-[22px] font-bold">Programas</h1>
           <p className="text-[13px] text-muted-foreground">
             Tu biblioteca de bloques reutilizables. Créalos una vez y asígnalos a cuantos clientes
             quieras — cada asignación es una copia, así que editar aquí no altera el bloque que

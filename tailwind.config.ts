@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
+import plugin from 'tailwindcss/plugin';
 
 export default {
   darkMode: 'class',
@@ -10,6 +11,7 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         heading: ['Poppins', 'Inter', 'sans-serif'],
         brand: ['EdoSZ', 'Poppins', 'sans-serif'],
+        poster: ['Anton', 'Impact', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -50,6 +52,7 @@ export default {
         success: 'hsl(var(--success))',
         warning: 'hsl(var(--warning))',
         faint: 'hsl(var(--faint))',
+        rail: 'hsl(var(--rail))',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -70,5 +73,13 @@ export default {
       },
     },
   },
-  plugins: [animate],
+  plugins: [
+    animate,
+    // Design switch (src/hooks/useDesign.tsx): `poster:` styles apply to the
+    // Dojo Poster look, `legacy:` to the deprecated original.
+    plugin(({ addVariant }) => {
+      addVariant('poster', ':is([data-design="poster"] &)');
+      addVariant('legacy', ':is([data-design="legacy"] &)');
+    }),
+  ],
 } satisfies Config;

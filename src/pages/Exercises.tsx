@@ -62,7 +62,6 @@ export default function Exercises() {
     <div className="flex animate-fade-up flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-heading text-[22px] font-bold">Ejercicios</h1>
           <p className="text-[13px] text-muted-foreground">
             Catálogo compartido — editar un ejercicio actualiza su nombre, demo e instrucciones en
             cada rutina y programa asignado.

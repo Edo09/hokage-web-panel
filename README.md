@@ -53,6 +53,13 @@ Both functions return a **one-time temporary password** that the panel shows onc
 - **Ajustes** (`/settings`) — coach display name + WhatsApp with a live mobile-app preview.
 - **`/privacidad.html`** — static public privacy policy (`public/privacidad.html`) linked from the app's Ajustes and the store listings. Fill in its `[BRACKETED]` fields before publishing.
 
+## Visual style
+
+Two looks, switchable in **Ajustes → Estilo del panel** (stored per browser, applied as `data-design` on `<html>`):
+
+- **Nuevo (Dojo)**, the default: the mobile app's "Dojo Poster" style: Anton caps headings (bundled via `@fontsource/anton`), skewed red primary buttons, sharp corners, the app's slate palette. Tokens in `src/index.css` under `[data-design='poster']`; component tweaks use the `poster:` Tailwind variant.
+- **Clásico (legacy)**: **deprecated**. The original rounded look, kept only as a fallback. Don't build new UI for it; it will be removed along with the `legacy:` variant and its tokens.
+
 ## Data layer
 
 The UI reads/writes data **only** through `src/services/*` — real Supabase queries, RLS-authorized by the signed-in coach's JWT (`src/lib/supabaseClient.ts`). Types in `src/types.ts` mirror the real tables (kept in sync with the mobile app's `src/types/database.ts`).

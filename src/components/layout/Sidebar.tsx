@@ -32,6 +32,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       aria-label="Navegación principal"
       className={cn(
         'sticky top-0 flex h-screen flex-none flex-col overflow-hidden border-r border-border bg-card px-3 py-[18px] transition-[width] duration-200',
+        'poster:bg-rail',
         collapsed ? 'w-[74px]' : 'w-[232px]',
       )}
     >
@@ -53,8 +54,10 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         />
         {!collapsed && (
           <div className="min-w-0">
-            <div className="whitespace-nowrap font-brand text-[23px] tracking-wide">THE HOKAGE</div>
-            <div className="whitespace-nowrap text-[12px] text-muted-foreground">Coaching</div>
+            <div className="whitespace-nowrap font-brand text-[23px] tracking-wide poster:text-primary">THE HOKAGE</div>
+            <div className="whitespace-nowrap text-[12px] text-muted-foreground poster:text-[10.5px] poster:font-extrabold poster:uppercase poster:tracking-[0.18em]">
+              Coaching
+            </div>
           </div>
         )}
       </div>
@@ -69,10 +72,15 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
               aria-current={active ? 'page' : undefined}
               title={collapsed ? label : undefined}
               className={cn(
-                'flex w-full items-center gap-[11px] rounded-[10px] px-3 py-2.5 text-[13.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'relative flex w-full items-center gap-[11px] rounded-[10px] px-3 py-2.5 text-[13.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'poster:rounded-none poster:text-[12px] poster:font-extrabold poster:uppercase poster:tracking-[0.1em]',
                 active ? 'bg-primary/10 text-primary dark:bg-primary/15' : 'text-muted-foreground hover:bg-muted',
               )}
             >
+              {/* Poster: the app's red tick marks the active item (not color alone). */}
+              {active && (
+                <span aria-hidden="true" className="absolute -left-3 top-2 bottom-2 hidden w-[3px] bg-primary poster:block" />
+              )}
               <Icon className="h-[17px] w-[17px] flex-none" strokeWidth={1.8} />
               {!collapsed && <span className="whitespace-nowrap">{label}</span>}
             </NavLink>

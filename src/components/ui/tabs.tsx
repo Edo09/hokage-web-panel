@@ -24,6 +24,8 @@ const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-[13.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-primary',
+      // Poster: caps tabs, thick red underline, active label in foreground.
+      'poster:border-b-[3px] poster:text-[12.5px] poster:font-extrabold poster:uppercase poster:tracking-[0.1em] poster:data-[state=active]:text-foreground',
       className,
     )}
     {...props}

@@ -12,6 +12,11 @@
 }
 
 @layer base {
+  /* ---------------------------------------------------------------------
+     * LEGACY design tokens (data-design="legacy") — DEPRECATED. The original
+     * rounded slate look, still the base the poster tokens below override.
+     * Kept switchable from Ajustes; do not extend.
+     * ------------------------------------------------------------------- */
   :root {
     /* Light theme — cool slate-gray canvas so white cards pop */
     --background: 216 29% 93.3%; /* #e9edf3 */
@@ -40,6 +45,7 @@
     --faint: 214 16% 48%; /* #66717f — was too light (2.9:1) to read on white */
     --radius: 0.75rem;
     --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.05);
+    --rail: 0 0% 100%;
   }
 
   .dark {
@@ -70,6 +76,72 @@
     --warning: 37.7 92.1% 50.2%; /* #f59e0b */
     --faint: 215 18% 63%; /* #8593a8 — was too dark (2.5:1) on cards */
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --rail: 216 28% 20%;
+  }
+
+  /* ---------------------------------------------------------------------
+   * POSTER design tokens (data-design="poster", the default) — the mobile
+   * app's "Dojo Poster" palette (app_redesign/design_handoff_dojo_poster in
+   * hokage-coaching-app): slate canvas, red for brand/action only, sharp
+   * corners. Light first, then dark.
+   * ------------------------------------------------------------------- */
+  [data-design='poster'] {
+    --background: 210 40% 98%; /* #f8fafc */
+    --foreground: 222.2 47.4% 11.2%; /* #0f172a */
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 47.4% 11.2%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 47.4% 11.2%;
+    --primary: 0 72.2% 50.6%; /* #dc2626 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 221.2 83.2% 53.3%; /* #2563eb */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 210 40% 96.1%; /* #f1f5f9 */
+    --muted-foreground: 215.4 16.3% 40%; /* #56657a */
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214.3 31.8% 91.4%; /* #e2e8f0 */
+    --border-strong: 212.7 26.8% 83.9%; /* #cbd5e1 */
+    --input: 214.3 31.8% 91.4%;
+    --field: 210 40% 98%;
+    --ring: 0 72.2% 50.6%;
+    --success: 142.1 76.2% 36.3%; /* #16a34a */
+    --warning: 32.1 94.6% 43.7%; /* #d97706 */
+    --faint: 215.4 16.3% 46.9%; /* #64748b */
+    --radius: 0.5rem;
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --rail: 0 0% 100%;
+  }
+
+  [data-design='poster'].dark {
+    --background: 222.2 47.4% 11.2%; /* #0f172a */
+    --foreground: 210 40% 98%; /* #f8fafc */
+    --card: 217.2 32.6% 17.5%; /* #1e293b */
+    --card-foreground: 210 40% 98%;
+    --popover: 217.2 32.6% 17.5%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 0 84.2% 60.2%; /* #ef4444 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217.2 91.2% 59.8%; /* #3b82f6 */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 215.3 25% 26.7%; /* #334155 */
+    --muted-foreground: 212.7 26.8% 83.9%; /* #cbd5e1 */
+    --accent: 215.3 25% 26.7%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215.3 25% 26.7%; /* #334155 */
+    --border-strong: 215.3 19.3% 34.5%; /* #475569 */
+    --input: 215.3 25% 26.7%;
+    --field: 222.2 47.4% 11.2%; /* #0f172a */
+    --ring: 0 84.2% 60.2%;
+    --success: 142.1 70.6% 45.3%; /* #22c55e */
+    --warning: 37.7 92.1% 50.2%; /* #f59e0b */
+    --faint: 215 20.2% 65.1%; /* #94a3b8 */
+    --shadow-card: none;
+    --rail: 224 49% 8%; /* #0b1120 */
   }
 
   * {
@@ -79,4 +151,28 @@
   body {
     @apply bg-background font-sans text-sm text-foreground antialiased;
   }
+}
+
+/* POSTER look — global typography + shape rules that pages get for free
+   (Tailwind utilities used across ~40 files; overriding them here keeps the
+   legacy look untouched). */
+@layer utilities {
+  /* Every heading/numeral set in the heading face becomes Anton caps. */
+  [data-design='poster'] .font-heading {
+    font-family: Anton, Impact, sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+}
+
+/* Sharper corners: soften the big rounded blocks pages hard-code. Declared
+   outside @layer so it beats the plain utilities; pills (rounded-full) and
+   avatars stay round. */
+[data-design='poster'] .rounded-2xl,
+[data-design='poster'] .rounded-xl,
+[data-design='poster'] .rounded-lg,
+[data-design='poster'] .rounded-\[10px\],
+[data-design='poster'] .rounded-\[20px\] {
+  border-radius: 4px;
 }

@@ -81,7 +81,6 @@ export default function Nutrition() {
   return (
     <div className="flex animate-fade-up flex-col gap-4">
       <div>
-        <h1 className="font-heading text-[22px] font-bold">Nutrición</h1>
         <p className="text-[13px] text-muted-foreground">
           Tu biblioteca de planes reutilizables. Créalos una vez y asígnalos a cuantos clientes
           quieras — cada asignación es una copia, así que editar aquí no altera el plan que alguien
