@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
+import { DiscardChangesDialog } from '@/components/program/DiscardChangesDialog';
 import {
   advSummary,
   emptyDay,
@@ -183,6 +184,8 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
     restored,
     draftDismissed,
     discardDraft,
+    hasChanges,
+    dropDraft,
     name,
     setName,
     focus,
@@ -216,6 +219,9 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
   } = useProgramBuilder(props);
 
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  /** Cancelar throws the draft away — so ask first when there's work to lose. */
+  const cancel = () => (hasChanges() ? setConfirmCancel(true) : onClose());
   const [headerAdv, setHeaderAdv] = useState(
     !!(initial?.progression_rule || initial?.tempo_default || initial?.description || initial?.notes),
   );
@@ -263,7 +269,7 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
             <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
               <Smartphone className="h-3.5 w-3.5" strokeWidth={2} /> Vista previa
             </Button>
-            <Button variant="outline" size="sm" onClick={onClose}>
+            <Button variant="outline" size="sm" onClick={cancel}>
               Cancelar
             </Button>
           </div>
@@ -829,6 +835,17 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
           <MobileProgramPreview program={preview} />
         </DialogContent>
       </Dialog>
+
+      <DiscardChangesDialog
+        open={confirmCancel}
+        onOpenChange={setConfirmCancel}
+        isTemplate={isTemplate}
+        editing={!!initial}
+        onDiscard={() => {
+          dropDraft();
+          onClose();
+        }}
+      />
     </Card>
   );
 }

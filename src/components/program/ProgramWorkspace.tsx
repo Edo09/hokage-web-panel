@@ -23,16 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { DiscardChangesDialog } from '@/components/program/DiscardChangesDialog';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { AiProgramDialog } from '@/components/program/AiProgramDialog';
 import {
@@ -205,29 +196,16 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
         onSave={() => void submit()}
       />
 
-      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Descartar los cambios?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {b.initial
-                ? `Se pierde lo que cambiaste desde que abriste ${b.isTemplate ? 'la plantilla' : 'el programa'}. La versión guardada queda como estaba.`
-                : `Se pierde lo que llevas de ${b.isTemplate ? 'esta plantilla' : 'este programa'}. No se guardó ni se asignó nada.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Seguir editando</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                b.dropDraft();
-                props.onClose();
-              }}
-            >
-              Descartar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DiscardChangesDialog
+        open={confirmCancel}
+        onOpenChange={setConfirmCancel}
+        isTemplate={b.isTemplate}
+        editing={!!b.initial}
+        onDiscard={() => {
+          b.dropDraft();
+          props.onClose();
+        }}
+      />
 
       <AiProgramDialog
         b={b}
