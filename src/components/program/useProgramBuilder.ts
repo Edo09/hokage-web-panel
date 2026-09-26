@@ -22,6 +22,28 @@ import {
   type WeekRow,
 } from '@/components/program/builderModel';
 
+/** The builder's starting point: a clean slate, or the saved program when editing. */
+function baselineDraft(initial: ProgramWithDetail | undefined): DraftData {
+  return {
+    name: initial?.name ?? '',
+    focus: initial?.focus ?? '',
+    description: initial?.description ?? '',
+    durationWeeks: String(initial?.duration_weeks ?? 4),
+    startDate: initial?.start_date?.slice(0, 10) ?? tomorrowISO(),
+    status: initial?.status ?? 'active',
+    progressionRule: initial?.progression_rule ?? '',
+    tempoDefault: initial?.tempo_default ?? '',
+    notes: initial?.notes ?? '',
+    days: initial ? daysFrom(initial) : [emptyDay()],
+    weeks: initial ? weeksFrom(initial) : resizeWeeks([], 4),
+  };
+}
+
+/** Compares drafts by content. Ignores advOpen, which only records whether a
+ *  row's "Avanzado" disclosure is expanded. */
+const draftSignature = (d: DraftData): string =>
+  JSON.stringify(d, (key, value: unknown) => (key === 'advOpen' ? undefined : value));
+
 export interface ProgramBuilderProps {
   /** Omit to author a library template instead of a client's program. */
   client?: ClientWithMeta;
@@ -46,9 +68,20 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
   // Autosave slot for THIS builder context (a client's program, or a template;
   // new vs editing an existing one).
   const storageKey = draftKey(isTemplate ? 'template' : client!.id, initial?.id ?? 'new');
+  // The form as it opens, before the coach touches it. A draft identical to it
+  // is not work worth keeping: opening the builder and cancelling, or
+  // discarding a recovered draft, must not leave a "Continuar borrador" behind.
+  const [pristine] = useState(() => draftSignature(baselineDraft(initial)));
   // Read once, at mount, so restored values seed useState directly — no flash
   // of empty fields and no effect-driven overwrite.
-  const [restored] = useState(() => loadDraft<DraftData>(storageKey));
+  const [restored] = useState(() => {
+    const r = loadDraft<DraftData>(storageKey);
+    if (r && draftSignature(r.data) === pristine) {
+      clearDraft(storageKey); // an untouched form saved by an older version
+      return null;
+    }
+    return r;
+  });
   const d = restored?.data;
   const [draftDismissed, setDraftDismissed] = useState(false);
 
@@ -80,10 +113,11 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
   }, []);
 
   // Autosave. Debounced so typing doesn't hit localStorage on every keystroke;
-  // cleared only on a successful save (see submit) or an explicit discard.
+  // cleared on a successful save (see submit), an explicit discard, or when
+  // the form is back to exactly how it opened.
   useEffect(() => {
     const t = setTimeout(() => {
-      saveDraft<DraftData>(storageKey, {
+      const data: DraftData = {
         name,
         focus,
         description,
@@ -95,11 +129,17 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
         notes,
         days,
         weeks,
-      });
-      setDraftSavedAt(Date.now());
+      };
+      if (draftSignature(data) === pristine) {
+        clearDraft(storageKey);
+        setDraftSavedAt(null);
+      } else {
+        saveDraft<DraftData>(storageKey, data);
+        setDraftSavedAt(Date.now());
+      }
     }, 600);
     return () => clearTimeout(t);
-  }, [storageKey, name, focus, description, durationWeeks, startDate, status, progressionRule, tempoDefault, notes, days, weeks]);
+  }, [storageKey, pristine, name, focus, description, durationWeeks, startDate, status, progressionRule, tempoDefault, notes, days, weeks]);
 
   const byName = useMemo(() => {
     const m = new Map<string, Exercise>();
@@ -123,24 +163,6 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     );
   const updWeek = (wi: number, patch: Partial<WeekRow>) =>
     setWeeks((ws) => ws.map((w, i) => (i === wi ? { ...w, ...patch } : w)));
-
-  /** Throw the recovered autosave away: back to a clean slate (or the saved
-   *  program, when editing). */
-  const discardDraft = () => {
-    clearDraft(storageKey);
-    setDraftDismissed(true);
-    setName(initial?.name ?? '');
-    setFocus(initial?.focus ?? '');
-    setDescription(initial?.description ?? '');
-    setDurationWeeks(String(initial?.duration_weeks ?? 4));
-    setStartDate(initial?.start_date?.slice(0, 10) ?? tomorrowISO());
-    setStatus(initial?.status ?? 'active');
-    setProgressionRule(initial?.progression_rule ?? '');
-    setTempoDefault(initial?.tempo_default ?? '');
-    setNotes(initial?.notes ?? '');
-    setDays(initial ? daysFrom(initial) : [emptyDay()]);
-    setWeeks(initial ? weeksFrom(initial) : resizeWeeks([], 4));
-  };
 
   const header = {
     name,
@@ -171,6 +193,15 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     setNotes(next.notes);
     setDays(next.days);
     setWeeks(resizeWeeks(next.weeks, clamp(parseInt(next.durationWeeks, 10) || 1, 1, 52)));
+  };
+
+  /** Throw the recovered autosave away: back to a clean slate (or the saved
+   *  program, when editing). The autosave then sees an untouched form and
+   *  keeps no draft. */
+  const discardDraft = () => {
+    clearDraft(storageKey);
+    setDraftDismissed(true);
+    replaceDraft(baselineDraft(initial));
   };
 
   /** Validates and saves. `onInvalid` lets the caller bring the failing field
