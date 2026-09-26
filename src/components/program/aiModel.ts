@@ -12,8 +12,10 @@ import type { LoadQualitative } from '@/types';
 import {
   clamp,
   emptyWeek,
+  loadQualLabel,
   overriddenWeeks,
   overrideHasData,
+  rangeText,
   SUPERSET_LETTERS,
   toInt,
   WEEKDAYS,
@@ -324,4 +326,119 @@ function overridesFrom(v: unknown, weeksN: number): Record<string, OverrideRow> 
     if (overrideHasData(row)) out[String(w)] = row;
   }
   return out;
+}
+
+/* ---- the result, for the coach's review panel ---- */
+
+/** One applied AI answer: what the builder held before and after it. */
+export interface AiResult {
+  kind: 'new' | 'edit';
+  summary: string;
+  dropped: string[];
+  before: DraftData;
+  after: DraftData;
+}
+
+/** "4 × 6–8", "3 × 12 / lado". */
+export const rxText = (x: ExRow): string =>
+  `${x.sets.trim() || '3'} × ${rangeText(x.repMin, x.repMax)}${x.unilateral ? ' / lado' : ''}`;
+
+/** The intensity the row sets on its own ("75% 1RM", "RIR 1–2"), or ''. */
+export const rxIntensity = (x: ExRow): string =>
+  [
+    x.loadPct.trim() ? `${x.loadPct.trim()}% 1RM` : x.loadQual ? loadQualLabel(x.loadQual) : '',
+    rangeText(x.rirMin, x.rirMax) !== '—' ? `RIR ${rangeText(x.rirMin, x.rirMax)}` : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+const namedRows = (d: DraftData) =>
+  d.days.flatMap((day, di) =>
+    day.exercises.filter((x) => x.name.trim()).map((x) => ({ day: di + 1, row: x, name: x.name.trim() })),
+  );
+
+export interface BlockFacts {
+  weeks: number;
+  days: number;
+  exercises: number;
+  deloadWeeks: number[];
+  /** "Carga 70% → 85%", "RIR 3 → 1": first vs last training week. */
+  ramp: string[];
+  /** The weeks the ramp spans (first and last non-deload week), or null. */
+  rampWeeks: [number, number] | null;
+}
+
+export function blockFacts(d: DraftData): BlockFacts {
+  const weeks = d.weeks.slice(0, clamp(parseInt(d.durationWeeks, 10) || 1, 1, 52));
+  const training = weeks.filter((w) => !w.isDeload);
+  const trainingNums = weeks.flatMap((w, i) => (w.isDeload ? [] : [i + 1]));
+  const ramp: string[] = [];
+  const edge = (label: string, pick: (w: WeekRow) => string, unit: string) => {
+    const set = training.map(pick).filter((s) => s !== '—');
+    if (set.length === 0) return;
+    const [first, last] = [set[0], set[set.length - 1]];
+    ramp.push(`${label} ${first === last ? `${first}${unit}` : `${first}${unit} → ${last}${unit}`}`);
+  };
+  edge('Carga', (w) => rangeText(w.loadMin, w.loadMax), '%');
+  edge('RIR', (w) => rangeText(w.rirMin, w.rirMax), '');
+  return {
+    weeks: weeks.length,
+    days: d.days.filter((day) => day.exercises.some((x) => x.name.trim())).length,
+    exercises: namedRows(d).length,
+    deloadWeeks: weeks.flatMap((w, i) => (w.isDeload ? [i + 1] : [])),
+    ramp,
+    rampWeeks: ramp.length > 0 && trainingNums.length > 1 ? [trainingNums[0], trainingNums[trainingNums.length - 1]] : null,
+  };
+}
+
+export interface DraftChanges {
+  /** Block-level changes, already phrased ("Duración: 4 → 6 semanas"). */
+  notes: string[];
+  added: { name: string; day: number }[];
+  removed: { name: string; day: number }[];
+  changed: { name: string; day: number; from: string; to: string }[];
+}
+
+/**
+ * What an edit changed, for the coach to check. Exercises are matched by
+ * name (drafts that were never saved have no ids): the same movement in both
+ * is "changed" when its prescription differs; extra copies are added/removed.
+ */
+export function diffDrafts(before: DraftData, after: DraftData): DraftChanges {
+  const notes: string[] = [];
+  const fb = blockFacts(before);
+  const fa = blockFacts(after);
+  if (before.name.trim() !== after.name.trim() && after.name.trim()) notes.push(`Nombre: ${after.name.trim()}`);
+  if (fb.weeks !== fa.weeks) notes.push(`Duración: ${fb.weeks} → ${fa.weeks} semanas`);
+  if (fb.days !== fa.days) notes.push(`Días por semana: ${fb.days} → ${fa.days}`);
+  const weeksKey = (d: DraftData) => JSON.stringify(d.weeks.slice(0, Math.min(fb.weeks, fa.weeks)));
+  if (fb.weeks === fa.weeks && weeksKey(before) !== weeksKey(after)) notes.push('Periodización semanal ajustada');
+  if (before.progressionRule.trim() !== after.progressionRule.trim()) notes.push('Regla de progresión actualizada');
+
+  const rx = (x: ExRow) => [rxText(x), rxIntensity(x)].filter(Boolean).join(', ');
+  const group = (d: DraftData) => {
+    const m = new Map<string, { name: string; day: number; row: ExRow }[]>();
+    for (const r of namedRows(d)) {
+      const k = r.name.toLowerCase();
+      m.set(k, [...(m.get(k) ?? []), r]);
+    }
+    return m;
+  };
+  const gb = group(before);
+  const ga = group(after);
+  const added: DraftChanges['added'] = [];
+  const removed: DraftChanges['removed'] = [];
+  const changed: DraftChanges['changed'] = [];
+  for (const k of new Set([...gb.keys(), ...ga.keys()])) {
+    const b = gb.get(k) ?? [];
+    const a = ga.get(k) ?? [];
+    const n = Math.min(a.length, b.length);
+    for (let i = 0; i < n; i++) {
+      if (rx(b[i].row) !== rx(a[i].row)) changed.push({ name: a[i].name, day: a[i].day, from: rx(b[i].row), to: rx(a[i].row) });
+    }
+    for (const r of a.slice(n)) added.push({ name: r.name, day: r.day });
+    for (const r of b.slice(n)) removed.push({ name: r.name, day: r.day });
+  }
+  const byDay = <T extends { day: number }>(xs: T[]) => xs.sort((p, q) => p.day - q.day);
+  return { notes, added: byDay(added), removed: byDay(removed), changed: byDay(changed) };
 }

@@ -26,6 +26,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DiscardChangesDialog } from '@/components/program/DiscardChangesDialog';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { AiProgramDialog } from '@/components/program/AiProgramDialog';
+import { AiResultPanel } from '@/components/program/AiResultPanel';
+import type { AiResult } from '@/components/program/aiModel';
 import {
   bodyPartLabel,
   emptyDay,
@@ -46,6 +48,7 @@ import {
   type WeekRow,
 } from '@/components/program/builderModel';
 import {
+  draftSignature,
   useProgramBuilder,
   type ProgramBuilderProps,
   type ProgramBuilderState,
@@ -108,6 +111,10 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  /** The last AI answer applied, shown in the review panel until closed. */
+  const [aiResult, setAiResult] = useState<AiResult | null>(null);
+  /** Remounts the panel per result, so each one opens expanded and focused. */
+  const [aiResultSeq, setAiResultSeq] = useState(0);
   const nameRef = useRef<HTMLInputElement>(null);
 
   /** Cancelar throws the draft away — so ask first when there's work to lose. */
@@ -211,13 +218,27 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
         b={b}
         open={aiOpen}
         onOpenChange={setAiOpen}
-        onApplied={() => {
+        onApplied={(r) => {
           setActiveDay(0);
           setSelWeek(0);
-          // The AI fills progression rule, tempo and notes too — show them.
-          setDetailsOpen(true);
+          setAiResult(r);
+          setAiResultSeq((n) => n + 1);
         }}
       />
+
+      {aiResult && (
+        <AiResultPanel
+          key={aiResultSeq}
+          result={aiResult}
+          editedSince={() => draftSignature(b.snapshot()) !== draftSignature(aiResult.after)}
+          onUndo={() => {
+            b.replaceDraft(aiResult.before);
+            setAiResult(null);
+          }}
+          onRefine={() => setAiOpen(true)}
+          onDismiss={() => setAiResult(null)}
+        />
+      )}
 
       <PeriodizationStrip b={b} selWeek={selWeek} onSelect={setSelWeek} />
 
@@ -288,6 +309,20 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
           <MobileProgramPreview program={b.preview} />
         </aside>
       </div>
+
+      {/* The header's actions again, so a long program can be saved without
+          scrolling back up. */}
+      <footer className="flex flex-wrap items-center justify-between gap-3 border border-border bg-card px-5 py-3">
+        <span className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{b.summaryText}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" onClick={cancel}>
+            Cancelar
+          </Button>
+          <Button size="lg" onClick={() => void submit()} disabled={b.saving || b.catalog === null}>
+            {b.saveLabel}
+          </Button>
+        </div>
+      </footer>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-[420px]">

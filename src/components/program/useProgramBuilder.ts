@@ -41,7 +41,7 @@ function baselineDraft(initial: ProgramWithDetail | undefined): DraftData {
 
 /** Compares drafts by content. Ignores advOpen, which only records whether a
  *  row's "Avanzado" disclosure is expanded. */
-const draftSignature = (d: DraftData): string =>
+export const draftSignature = (d: DraftData): string =>
   JSON.stringify(d, (key, value: unknown) => (key === 'advOpen' ? undefined : value));
 
 export interface ProgramBuilderProps {

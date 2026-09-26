@@ -8,7 +8,8 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AiProgramError, generateProgram } from '@/services/aiProgram';
-import { aiToDraft, draftToAi } from '@/components/program/aiModel';
+import { aiToDraft, draftToAi, type AiResult } from '@/components/program/aiModel';
+import type { DraftData } from '@/components/program/builderModel';
 import type { ProgramBuilderState } from '@/components/program/useProgramBuilder';
 
 const MAX_PROMPT = 2000;
@@ -31,8 +32,9 @@ type Mode = 'edit' | 'new';
  * The builder's AI assistant. The coach describes a program (or a change to
  * the current draft); the generate-program function returns it; the result
  * replaces the draft in the builder, where it's reviewed and saved like a
- * hand-made one. Nothing here touches the database, and the toast offers
- * "Deshacer" back to the exact draft from before.
+ * hand-made one. Nothing here touches the database; the workspace's review
+ * panel (AiResultPanel) shows what changed and offers "Deshacer" back to the
+ * exact draft from before.
  */
 export function AiProgramDialog({
   b,
@@ -43,8 +45,8 @@ export function AiProgramDialog({
   b: ProgramBuilderState;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called after the draft was replaced (the workspace resets its tabs). */
-  onApplied: () => void;
+  /** Called after the draft was replaced, with what the AI did. */
+  onApplied: (result: AiResult) => void;
 }) {
   const hasContent = b.exCount > 0;
   const [prompt, setPrompt] = useState('');
@@ -81,30 +83,20 @@ export function AiProgramDialog({
       const next = aiToDraft(raw, editing ? before.days : null, isKnown);
       if (!next) throw new Error('La IA no devolvió ejercicios del catálogo. Prueba a describirlo de otra forma.');
 
-      b.replaceDraft({
+      const after: DraftData = {
         ...before, // start date and status stay the coach's
         ...next.header,
         name: next.header.name || before.name,
         days: next.days,
         weeks: next.weeks,
-      });
-      onApplied();
+      };
+      b.replaceDraft(after);
       setLastSummary(next.summary);
       setPrompt('');
       setMode('edit');
       onOpenChange(false);
-
-      toast.success(editing ? 'Cambios aplicados al borrador' : 'Borrador generado', {
-        description: next.summary || 'Revísalo antes de guardar.',
-        duration: 15_000,
-        action: { label: 'Deshacer', onClick: () => b.replaceDraft(before) },
-      });
-      if (next.dropped.length > 0) {
-        toast.warning('Algunos ejercicios no están en el catálogo y se quitaron', {
-          description: next.dropped.join(', '),
-          duration: 15_000,
-        });
-      }
+      // The workspace shows it in the review panel (with "Deshacer").
+      onApplied({ kind: editing ? 'edit' : 'new', summary: next.summary, dropped: next.dropped, before, after });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo generar el programa', {
         description: e instanceof AiProgramError && e.detail ? `Detalle: ${e.detail.slice(0, 300)}` : undefined,
