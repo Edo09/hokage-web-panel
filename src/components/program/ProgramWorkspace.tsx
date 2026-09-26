@@ -23,6 +23,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { AiProgramDialog } from '@/components/program/AiProgramDialog';
 import {
@@ -106,7 +116,11 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
   );
   const [previewOpen, setPreviewOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+
+  /** Cancelar throws the draft away — so ask first when there's work to lose. */
+  const cancel = () => (b.hasChanges() ? setConfirmCancel(true) : props.onClose());
 
   const day = b.days[Math.min(activeDay, b.days.length - 1)];
   const dayIdx = Math.min(activeDay, b.days.length - 1);
@@ -187,9 +201,33 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
         onToggleDetails={() => setDetailsOpen((v) => !v)}
         onPreview={() => setPreviewOpen(true)}
         onAi={() => setAiOpen(true)}
-        onCancel={props.onClose}
+        onCancel={cancel}
         onSave={() => void submit()}
       />
+
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Descartar los cambios?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {b.initial
+                ? `Se pierde lo que cambiaste desde que abriste ${b.isTemplate ? 'la plantilla' : 'el programa'}. La versión guardada queda como estaba.`
+                : `Se pierde lo que llevas de ${b.isTemplate ? 'esta plantilla' : 'este programa'}. No se guardó ni se asignó nada.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Seguir editando</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                b.dropDraft();
+                props.onClose();
+              }}
+            >
+              Descartar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AiProgramDialog
         b={b}

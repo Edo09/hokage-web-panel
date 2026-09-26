@@ -2,10 +2,11 @@
  * Local autosave for long builder forms.
  *
  * Building a 5-week program is many minutes of typing, and every one of these
- * wipes it: a refresh, an accidental "Cancelar", clicking a sidebar link, a
- * crash, or the auth session dropping (RequireAuth then redirects to /login and
- * unmounts the form). The draft is mirrored to localStorage on every keystroke
- * so reopening the builder picks up exactly where the coach left off.
+ * wipes it: a refresh, clicking a sidebar link, a crash, or the auth session
+ * dropping (RequireAuth then redirects to /login and unmounts the form). The
+ * draft is mirrored to localStorage on every keystroke so reopening the
+ * builder picks up exactly where the coach left off. "Cancelar" is the one
+ * deliberate exit: the builder confirms, then drops the draft.
  *
  * Storage only — nothing here reaches the database.
  */

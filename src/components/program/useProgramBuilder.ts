@@ -204,6 +204,14 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     replaceDraft(baselineDraft(initial));
   };
 
+  /** Whether the form differs from how it opened (a recovered draft counts) —
+   *  i.e. whether leaving now would throw work away. */
+  const hasChanges = () => draftSignature(snapshot()) !== pristine;
+
+  /** Forget the autosave for good (the coach chose to discard). The caller
+   *  closes the builder; unmounting cancels any pending autosave. */
+  const dropDraft = () => clearDraft(storageKey);
+
   /** Validates and saves. `onInvalid` lets the caller bring the failing field
    *  into view (a wizard step, a day tab, a week). */
   const submit = async (onInvalid: (where: ProgramInvalid | { step: 0; message: string }) => void) => {
@@ -285,6 +293,8 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     restored,
     draftDismissed,
     discardDraft,
+    hasChanges,
+    dropDraft,
     draftSavedAt,
     name,
     setName,
