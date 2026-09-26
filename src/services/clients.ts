@@ -6,7 +6,6 @@
  * Requires these migrations applied (mobile app repo, Supabase SQL editor):
  *   20260717150000_profiles_email_sync.sql   — profiles.email + sync trigger
  *   20260717150100_memberships_one_per_client.sql — unique(client_id)
- *   20260720120000_save_coach_routine_rpc.sql — transactional routine writes
  * plus everything from the coaching-platform migration set.
  */
 import { supabase } from '@/lib/supabaseClient';
@@ -307,65 +306,6 @@ export async function resetClientPassword(clientId: string): Promise<string> {
 
 export async function updateClient(id: string, patch: Partial<Client>): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', id);
-  if (error) throw error;
-}
-
-export interface AssignRoutineExerciseInput {
-  exercise_id: string;
-  sets: number;
-  reps: number;
-  weight_kg: number | null;
-  rest_seconds: number;
-  sort_order: number;
-  notes?: string | null;
-}
-
-export interface AssignRoutineInput {
-  name: string;
-  description: string | null;
-  /** Stored lowercase English ('monday'..'sunday') — matches the mobile
-   *  app's convention (src/utils/day-label.ts); the UI shows Spanish labels. */
-  day_of_week: string | null;
-  exercises: AssignRoutineExerciseInput[];
-}
-
-/** Assign (p_routine_id null) or rewrite (id set) a coach routine + its
- *  exercises atomically. Wraps the save_coach_routine RPC, which does the
- *  whole write in ONE transaction — the old browser path used 2–3 separate
- *  calls with no rollback, so a mid-write failure could leave a routine with
- *  no exercises (the edit path had no compensation). See the migration
- *  supabase/migrations/20260720120000_save_coach_routine_rpc.sql (mobile repo). */
-async function saveCoachRoutine(
-  routineId: string | null,
-  clientId: string,
-  input: AssignRoutineInput,
-): Promise<void> {
-  const { error } = await supabase.rpc('save_coach_routine', {
-    p_routine_id: routineId,
-    p_client_id: clientId,
-    p_name: input.name,
-    p_description: input.description,
-    p_day_of_week: input.day_of_week,
-    p_exercises: input.exercises,
-  });
-  if (error) throw error;
-}
-
-export async function assignRoutine(clientId: string, input: AssignRoutineInput): Promise<void> {
-  await saveCoachRoutine(null, clientId, input);
-}
-
-export async function updateRoutine(
-  routineId: string,
-  clientId: string,
-  input: AssignRoutineInput,
-): Promise<void> {
-  await saveCoachRoutine(routineId, clientId, input);
-}
-
-/** Removes an assigned routine; routine_exercises rows cascade (FK). */
-export async function deleteRoutine(routineId: string): Promise<void> {
-  const { error } = await supabase.from('routines').delete().eq('id', routineId);
   if (error) throw error;
 }
 
