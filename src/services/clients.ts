@@ -304,6 +304,26 @@ export async function resetClientPassword(clientId: string): Promise<string> {
   return data.temp_password;
 }
 
+/** The coach's private note on a client (client_notes — coach-only RLS, the
+ *  client never sees it). `null` = the table doesn't exist yet (migration
+ *  20260926130000 not applied); '' = no note written. */
+export async function getClientNote(clientId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('client_notes').select('body').eq('client_id', clientId).maybeSingle();
+  if (error) {
+    if (error.code === '42P01' || error.code === 'PGRST205') return null;
+    throw error;
+  }
+  return (data?.body as string | undefined) ?? '';
+}
+
+export async function saveClientNote(clientId: string, body: string): Promise<void> {
+  const coachId = await currentCoachId();
+  const { error } = await supabase
+    .from('client_notes')
+    .upsert({ client_id: clientId, body, updated_at: new Date().toISOString(), updated_by: coachId }, { onConflict: 'client_id' });
+  if (error) throw error;
+}
+
 export async function updateClient(id: string, patch: Partial<Client>): Promise<void> {
   const { error } = await supabase.from('profiles').update(patch).eq('id', id);
   if (error) throw error;

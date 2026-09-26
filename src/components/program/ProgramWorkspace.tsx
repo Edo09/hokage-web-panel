@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react';
+import { Fragment, useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react';
 import {
   ChevronDown,
   ChevronUp,
   Copy,
   Dumbbell,
   GripVertical,
+  Link2,
   Minus,
   Plus,
   RotateCcw,
@@ -26,6 +27,11 @@ import {
   bodyPartLabel,
   emptyDay,
   emptyEx,
+  emptyOverride,
+  overriddenWeeks,
+  overrideHasData,
+  SUPERSET_LETTERS,
+  type OverrideRow,
   LOAD_QUAL,
   rangeText,
   STATUSES,
@@ -239,7 +245,7 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
             onMove={moveRow}
           />
 
-          <VolumeCard b={b} dayIdx={dayIdx} week={week} />
+          <VolumeCard b={b} dayIdx={dayIdx} week={week} weekNumber={Math.min(selWeek, b.weeks.length - 1) + 1} />
         </section>
 
         <aside aria-label="Vista previa en la app" className="hidden flex-col gap-2 2xl:flex">
@@ -777,14 +783,26 @@ function ExerciseTable({
           <span />
         </div>
 
-        {day.exercises.map((x, xi) => (
+        {day.exercises.map((x, xi) => {
+          // Consecutive rows sharing a letter form a superset (as in the app).
+          const g = x.superset?.trim() || null;
+          const prev = day.exercises[xi - 1]?.superset?.trim() || null;
+          const next = day.exercises[xi + 1]?.superset?.trim() || null;
+          const inGroup = g != null && (g === prev || g === next);
+          return (
+          <Fragment key={xi}>
+          {inGroup && g !== prev && (
+            <div className="border-l-[3px] border-primary bg-primary/[0.05] px-3.5 pt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-primary">
+              Superserie {g} · sin descanso entre ejercicios
+            </div>
+          )}
           <ExerciseRow
-            key={xi}
             b={b}
             x={x}
             xi={xi}
             dayIdx={dayIdx}
             count={day.exercises.length}
+            inGroup={inGroup}
             weekRir={weekRir}
             dropHere={over === xi}
             onDragOver={(e) => allowDrop(e, xi)}
@@ -795,7 +813,9 @@ function ExerciseTable({
             }}
             onMove={onMove}
           />
-        ))}
+          </Fragment>
+          );
+        })}
 
         <button
           type="button"
@@ -824,6 +844,7 @@ function ExerciseRow({
   xi,
   dayIdx,
   count,
+  inGroup,
   weekRir,
   dropHere,
   onDragOver,
@@ -836,6 +857,7 @@ function ExerciseRow({
   xi: number;
   dayIdx: number;
   count: number;
+  inGroup: boolean;
   weekRir: string;
   dropHere: boolean;
   onDragOver: (e: DragEvent) => void;
@@ -848,13 +870,33 @@ function ExerciseRow({
   const rirInherited = !x.rirMin.trim() && !x.rirMax.trim() && weekRir !== '—';
   const [rirLo, rirHi] = weekRir.includes('–') ? weekRir.split('–') : [weekRir, weekRir];
   const qual = LOAD_QUAL.find((l) => l.value === x.loadQual && l.value)?.label;
+  const adjusted = overriddenWeeks(x, b.weeksN);
+  const [editWeek, setEditWeek] = useState<number | null>(null);
+
+  /** Put this row and the next one in the same superset (reusing a letter
+   *  either already has, else the first one free in the day). */
+  const linkWithNext = () => {
+    const rows = [...b.days[dayIdx].exercises];
+    const next = rows[xi + 1];
+    if (!next) return;
+    const used = new Set(rows.map((r) => r.superset?.trim()).filter(Boolean));
+    const letter = x.superset?.trim() || next.superset?.trim() || SUPERSET_LETTERS.find((l) => !used.has(l)) || 'A';
+    rows[xi] = { ...rows[xi], superset: letter };
+    rows[xi + 1] = { ...next, superset: letter };
+    b.updDay(dayIdx, { exercises: rows });
+  };
 
   return (
     <div
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={cn('border-b border-border', dropHere && 'shadow-[inset_0_3px_0_hsl(var(--primary))]', x.advOpen && 'bg-muted/30')}
+      className={cn(
+        'border-b border-border',
+        inGroup && 'border-l-[3px] border-l-primary bg-primary/[0.05]',
+        dropHere && 'shadow-[inset_0_3px_0_hsl(var(--primary))]',
+        x.advOpen && 'bg-muted/30',
+      )}
     >
       <div className={cn(ROW_GRID, 'px-3.5 py-2')}>
         <span
@@ -886,6 +928,9 @@ function ExerciseRow({
               {qual && <span>· {qual}</span>}
               {x.tempo.trim() && <span>· tempo {x.tempo.trim()}</span>}
               {x.notes.trim() && <span>· nota</span>}
+              {adjusted.length > 0 && (
+                <span className="font-bold text-warning">· ajustes {adjusted.map((w) => `S${w}`).join(', ')}</span>
+              )}
             </div>
           </div>
         </div>
@@ -974,6 +1019,27 @@ function ExerciseRow({
             />
             Por lado
           </label>
+          <div className="flex flex-col gap-1">
+            <span className={CAPS}>Superserie</span>
+            <div className="flex gap-1">
+              <select
+                className={NATIVE_SELECT}
+                aria-label="Superserie"
+                value={x.superset ?? ''}
+                onChange={(e) => upd({ superset: e.target.value })}
+              >
+                <option value="">Ninguna</option>
+                {SUPERSET_LETTERS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+              <Button variant="outline" size="sm" disabled={xi === count - 1} onClick={linkWithNext} title="Hacer superserie con el siguiente ejercicio">
+                <Link2 className="h-3.5 w-3.5" /> Unir con el siguiente
+              </Button>
+            </div>
+          </div>
           <div className="flex gap-1">
             <Button variant="outline" size="icon" aria-label="Subir" disabled={xi === 0} onClick={() => onMove(xi, xi - 1)}>
               <ChevronUp className="h-3.5 w-3.5" />
@@ -994,6 +1060,102 @@ function ExerciseRow({
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </div>
+          <WeekOverrides
+            x={x}
+            weeks={b.weeksN}
+            editWeek={editWeek}
+            onEditWeek={setEditWeek}
+            onChange={(w, o) => upd({ overrides: { ...(x.overrides ?? {}), [String(w)]: o } })}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** "Ajuste por semana": this exercise's own values for chosen weeks (e.g. 4
+ *  sets in week 3). Empty fields fall back to the base row / week. */
+function WeekOverrides({
+  x,
+  weeks,
+  editWeek,
+  onEditWeek,
+  onChange,
+}: {
+  x: ExRow;
+  weeks: number;
+  editWeek: number | null;
+  onEditWeek: (w: number | null) => void;
+  onChange: (week: number, o: OverrideRow) => void;
+}) {
+  const o = editWeek != null ? (x.overrides?.[String(editWeek)] ?? emptyOverride()) : null;
+  const field = (k: keyof OverrideRow, label: string, placeholder: string) => (
+    <input
+      className={cn(CELL, 'w-12')}
+      type="number"
+      aria-label={`Semana ${editWeek}: ${label}`}
+      placeholder={placeholder}
+      value={o![k]}
+      onChange={(e) => onChange(editWeek!, { ...o!, [k]: e.target.value })}
+    />
+  );
+
+  return (
+    <div className="flex w-full flex-col gap-2 border-t border-border pt-3">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className={cn(CAPS, 'mr-1')}>Ajuste por semana</span>
+        {Array.from({ length: weeks }, (_, i) => i + 1).map((w) => {
+          const has = overrideHasData(x.overrides?.[String(w)]);
+          return (
+            <button
+              key={w}
+              type="button"
+              aria-pressed={editWeek === w}
+              onClick={() => onEditWeek(editWeek === w ? null : w)}
+              className={cn(
+                'h-8 min-w-10 border px-2 text-[12px] font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                editWeek === w
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : has
+                    ? 'border-warning bg-warning/15 text-warning'
+                    : 'border-border bg-field text-muted-foreground hover:border-border-strong',
+              )}
+            >
+              S{w}
+            </button>
+          );
+        })}
+      </div>
+      {o && editWeek != null && (
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <span className={CAPS}>Series</span>
+            {field('sets', 'series', x.sets || '—')}
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className={CAPS}>Reps</span>
+            <div className="flex items-center gap-1">
+              {field('repMin', 'repeticiones mínimas', x.repMin || '—')}
+              <span className="text-faint">–</span>
+              {field('repMax', 'repeticiones máximas', x.repMax || '—')}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className={CAPS}>RIR</span>
+            <div className="flex items-center gap-1">
+              {field('rirMin', 'RIR mínimo', x.rirMin || '—')}
+              <span className="text-faint">–</span>
+              {field('rirMax', 'RIR máximo', x.rirMax || '—')}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className={CAPS}>%1RM</span>
+            {field('loadPct', '% de 1RM', x.loadPct || '—')}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => onChange(editWeek, emptyOverride())} disabled={!overrideHasData(o)}>
+            Quitar ajuste S{editWeek}
+          </Button>
+          <span className="text-[11.5px] text-faint">Lo que dejes vacío usa los valores de la fila.</span>
         </div>
       )}
     </div>
@@ -1002,7 +1164,7 @@ function ExerciseRow({
 
 /* ------------------------------------------------------------------ volume */
 
-function VolumeCard({ b, dayIdx, week }: { b: ProgramBuilderState; dayIdx: number; week: WeekRow | undefined }) {
+function VolumeCard({ b, dayIdx, week, weekNumber }: { b: ProgramBuilderState; dayIdx: number; week: WeekRow | undefined; weekNumber: number }) {
   const override = week ? toInt(week.setsOverride) : null;
 
   const tally = (days: DayRow[]) => {
@@ -1011,7 +1173,7 @@ function VolumeCard({ b, dayIdx, week }: { b: ProgramBuilderState; dayIdx: numbe
       for (const x of d.exercises) {
         if (!x.name.trim()) continue;
         const part = bodyPartLabel(b.byName.get(x.name.trim().toLowerCase())?.body_part?.name);
-        const sets = override ?? toInt(x.sets) ?? 0;
+        const sets = toInt(x.overrides?.[String(weekNumber)]?.sets ?? '') ?? override ?? toInt(x.sets) ?? 0;
         m.set(part, (m.get(part) ?? 0) + sets);
       }
     }

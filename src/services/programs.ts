@@ -9,6 +9,7 @@
  */
 import { supabase } from '@/lib/supabaseClient';
 import type {
+  WeekOverride,
   LoadQualitative,
   ProgramStatus,
   ProgramWithDetail,
@@ -144,6 +145,8 @@ export interface ProgramExerciseInput {
   rest_seconds: number | null;
   notes: string | null;
   sort_order: number;
+  superset_group: string | null;
+  week_overrides: Record<string, WeekOverride>;
 }
 
 export interface ProgramDayInput {

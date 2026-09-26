@@ -21,6 +21,33 @@ export interface PreviewExercise {
   tempo: string | null;
   rest: number | null;
   notes: string | null;
+  /** Superset letter, or null for a straight set. */
+  superset: string | null;
+  /** The exercise's own values for specific weeks (week number → values). */
+  overrides: Record<number, PreviewOverride>;
+}
+export type PreviewOverride = Partial<{
+  sets: number;
+  repMin: number;
+  repMax: number;
+  rirMin: number;
+  rirMax: number;
+  loadPct: number;
+}>;
+
+/** The row as the client sees it in `week`: its own override for that week
+ *  first, then the week's deload set count, then the base prescription. */
+export function effectiveForWeek(ex: PreviewExercise, week: number, setsOverride: number | null) {
+  const o = ex.overrides[week];
+  return {
+    sets: o?.sets ?? setsOverride ?? ex.sets,
+    repMin: o?.repMin ?? ex.repMin,
+    repMax: o?.repMax ?? ex.repMax,
+    rirMin: o?.rirMin ?? ex.rirMin,
+    rirMax: o?.rirMax ?? ex.rirMax,
+    loadPct: o?.loadPct ?? ex.loadPct,
+    adjusted: o != null && Object.keys(o).length > 0,
+  };
 }
 export interface PreviewDay {
   index: number;
@@ -83,6 +110,13 @@ export function programToPreview(p: ProgramWithDetail): PreviewProgram {
             tempo: e.tempo,
             rest: e.rest_seconds,
             notes: e.notes,
+            superset: e.superset_group ?? null,
+            overrides: Object.fromEntries(
+              Object.entries(e.week_overrides ?? {}).map(([w, o]) => [
+                Number(w),
+                { sets: o.sets, repMin: o.rep_min, repMax: o.rep_max, rirMin: o.rir_min, rirMax: o.rir_max, loadPct: o.load_pct_1rm },
+              ]),
+            ),
           })),
       })),
     weeks: [...p.program_weeks]
@@ -142,6 +176,8 @@ export function draftToPreview(
       tempo: string;
       rest: string;
       notes: string;
+      superset?: string;
+      overrides?: Record<string, { sets: string; repMin: string; repMax: string; rirMin: string; rirMax: string; loadPct: string }>;
     }[];
   }[],
   weeks: {
@@ -188,6 +224,23 @@ export function draftToPreview(
             tempo: x.tempo.trim() || null,
             rest: num(x.rest),
             notes: x.notes.trim() || null,
+            superset: x.superset?.trim() || null,
+            overrides: Object.fromEntries(
+              Object.entries(x.overrides ?? {}).map(([w, o]) => {
+                const v: PreviewOverride = {};
+                const put = (k: keyof PreviewOverride, raw: string) => {
+                  const n = num(raw);
+                  if (n != null) v[k] = n;
+                };
+                put('sets', o.sets);
+                put('repMin', o.repMin);
+                put('repMax', o.repMax);
+                put('rirMin', o.rirMin);
+                put('rirMax', o.rirMax);
+                put('loadPct', o.loadPct);
+                return [Number(w), v];
+              }),
+            ),
           })),
       }))
       .filter((d) => d.exercises.length > 0),

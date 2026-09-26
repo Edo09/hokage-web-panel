@@ -3,7 +3,7 @@
  * and the deprecated wizard (LegacyProgramBuilder). Row models are all
  * strings while editing; they're parsed and validated at save time.
  */
-import type { LoadQualitative, ProgramStatus, ProgramWithDetail } from '@/types';
+import type { LoadQualitative, ProgramStatus, ProgramWithDetail, WeekOverride } from '@/types';
 import type { ProgramDayInput, SaveProgramInput } from '@/services/programs';
 
 /* Stored lowercase English; UI shows Spanish. '' = "Día N" only (no weekday). */
@@ -86,7 +86,32 @@ export interface ExRow {
   notes: string;
   /** UI-only: whether the row's advanced disclosure is expanded. Not sent. */
   advOpen: boolean;
+  /** Superset letter ('' = straight set). Optional: drafts saved before
+   *  supersets existed don't carry it. */
+  superset?: string;
+  /** This exercise's own values for specific weeks, keyed by week number. */
+  overrides?: Record<string, OverrideRow>;
 }
+
+/** One week's override for one exercise, as typed ('' = not overridden). */
+export interface OverrideRow {
+  sets: string;
+  repMin: string;
+  repMax: string;
+  rirMin: string;
+  rirMax: string;
+  loadPct: string;
+}
+export const emptyOverride = (): OverrideRow => ({ sets: '', repMin: '', repMax: '', rirMin: '', rirMax: '', loadPct: '' });
+export const overrideHasData = (o: OverrideRow | undefined): boolean =>
+  !!o && Object.values(o).some((v) => v.trim() !== '');
+/** Week numbers (ascending) this row overrides, within the block. */
+export const overriddenWeeks = (x: ExRow, weeks: number): number[] =>
+  Object.entries(x.overrides ?? {})
+    .filter(([w, o]) => overrideHasData(o) && Number(w) >= 1 && Number(w) <= weeks)
+    .map(([w]) => Number(w))
+    .sort((a, b) => a - b);
+export const SUPERSET_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 export interface DayRow {
   /** DB id when loaded from an existing program (see ExRow.id). */
   id?: string;
@@ -119,6 +144,8 @@ export const emptyEx = (): ExRow => ({
   rest: '90',
   notes: '',
   advOpen: false,
+  superset: '',
+  overrides: {},
 });
 export const emptyDay = (): DayRow => ({ label: '', weekday: '', exercises: [emptyEx()] });
 export const emptyWeek = (): WeekRow => ({
@@ -240,6 +267,28 @@ export function validateProgram(days: DayRow[], weeks: WeekRow[]): ProgramInvali
         return { step: 1, dayIndex: di, message: `${where}: el RIR va de menor a mayor (${rirMin}–${rirMax}).` };
       }
 
+      for (const [wk, o] of Object.entries(x.overrides ?? {})) {
+        if (!overrideHasData(o)) continue;
+        const at = `${where}, ajuste de la semana ${wk}`;
+        for (const [raw, label, lo, hi] of [
+          [o.sets, 'las series', 1, 20],
+          [o.repMin, 'las repeticiones mínimas', 1, 100],
+          [o.repMax, 'las repeticiones máximas', 1, 100],
+          [o.rirMin, 'el RIR mínimo', 0, 10],
+          [o.rirMax, 'el RIR máximo', 0, 10],
+          [o.loadPct, 'el %1RM', 1, 100],
+        ] as const) {
+          const err = checkRange(raw, lo, hi, label);
+          if (err) return { step: 1, dayIndex: di, message: `${at}: ${err}` };
+        }
+        const a = toInt(o.repMin);
+        const b = toInt(o.repMax);
+        if (a != null && b != null && a > b) return { step: 1, dayIndex: di, message: `${at}: las repeticiones van de menor a mayor.` };
+        const c = toInt(o.rirMin);
+        const e = toInt(o.rirMax);
+        if (c != null && e != null && c > e) return { step: 1, dayIndex: di, message: `${at}: el RIR va de menor a mayor.` };
+      }
+
       const pct = checkRange(x.loadPct, 1, 100, 'el %1RM');
       if (pct) return { step: 1, dayIndex: di, message: `${where}: ${pct}` };
       const rest = checkRange(x.rest, 0, 900, 'el descanso (en segundos)');
@@ -295,6 +344,20 @@ export const daysFrom = (p: ProgramWithDetail): DayRow[] =>
                   tempo: e.tempo ?? '',
                   rest: e.rest_seconds != null ? String(e.rest_seconds) : '',
                   notes: e.notes ?? '',
+                  superset: e.superset_group ?? '',
+                  overrides: Object.fromEntries(
+                    Object.entries(e.week_overrides ?? {}).map(([w, o]) => [
+                      w,
+                      {
+                        sets: o.sets != null ? String(o.sets) : '',
+                        repMin: o.rep_min != null ? String(o.rep_min) : '',
+                        repMax: o.rep_max != null ? String(o.rep_max) : '',
+                        rirMin: o.rir_min != null ? String(o.rir_min) : '',
+                        rirMax: o.rir_max != null ? String(o.rir_max) : '',
+                        loadPct: o.load_pct_1rm != null ? String(o.load_pct_1rm) : '',
+                      },
+                    ]),
+                  ),
                   advOpen:
                     e.rir_min != null ||
                     e.rir_max != null ||
@@ -375,6 +438,8 @@ export function buildPayload(
             rest_seconds: toInt(x.rest),
             notes: x.notes.trim() || null,
             sort_order: xi,
+            superset_group: x.superset?.trim() || null,
+            week_overrides: overridesPayload(x, clamp(parseInt(header.durationWeeks, 10) || 1, 1, 52)),
           };
         }),
     }))
@@ -403,6 +468,28 @@ export function buildPayload(
       notes: w.notes.trim() || null,
     })),
   };
+}
+
+/** Typed overrides → stored jsonb: only weeks inside the block, only the
+ *  fields the coach filled in. */
+function overridesPayload(x: ExRow, weeks: number): Record<string, WeekOverride> {
+  const out: Record<string, WeekOverride> = {};
+  for (const w of overriddenWeeks(x, weeks)) {
+    const o = x.overrides![String(w)];
+    const v: WeekOverride = {};
+    const set = (k: keyof WeekOverride, raw: string) => {
+      const n = toInt(raw);
+      if (n != null) v[k] = n;
+    };
+    set('sets', o.sets);
+    set('rep_min', o.repMin);
+    set('rep_max', o.repMax);
+    set('rir_min', o.rirMin);
+    set('rir_max', o.rirMax);
+    set('load_pct_1rm', o.loadPct);
+    if (Object.keys(v).length > 0) out[String(w)] = v;
+  }
+  return out;
 }
 
 /* ---- catalog body parts (stored in English by the seed) ---- */

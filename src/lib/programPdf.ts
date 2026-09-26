@@ -49,6 +49,16 @@ const detailText = (e: ProgramExercise): string => {
   if (e.tempo) bits.push(`Tempo ${e.tempo}`);
   if (e.is_unilateral) bits.push('Por lado');
   if (e.notes) bits.push(e.notes);
+  // Per-week adjustments, e.g. "S3: 4 × 10–12 · RIR 1".
+  for (const [w, o] of Object.entries(e.week_overrides ?? {}).sort(([a], [b]) => Number(a) - Number(b))) {
+    const parts: string[] = [];
+    const reps = rangeText(o.rep_min ?? null, o.rep_max ?? null);
+    if (o.sets != null || reps !== '—') parts.push(`${o.sets ?? e.sets} × ${reps !== '—' ? reps : rangeText(e.rep_min, e.rep_max)}`);
+    const orir = rangeText(o.rir_min ?? null, o.rir_max ?? null);
+    if (orir !== '—') parts.push(`RIR ${orir}`);
+    if (o.load_pct_1rm != null) parts.push(`${o.load_pct_1rm}%`);
+    if (parts.length) bits.push(`S${w}: ${parts.join(' · ')}`);
+  }
   return bits.join(' · ') || '—';
 };
 const weekHasData = (w: ProgramWeek): boolean =>
@@ -179,7 +189,7 @@ export async function exportProgramPdf(program: ProgramWithDetail, clientName: s
       margin: { left: M, right: M },
       head: [['#', 'Ejercicio', 'Series', 'Reps', 'Desc.', 'Carga', 'RIR · Tempo · Notas']],
       body: exs.map((e, i) => [
-        String(i + 1),
+        e.superset_group ? `${i + 1} ${e.superset_group}` : String(i + 1),
         exerciseName(e),
         String(e.sets),
         rangeText(e.rep_min, e.rep_max) + (e.is_unilateral ? ' /lado' : ''),

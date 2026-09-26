@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { range } from '@/components/program/previewModel';
+import { effectiveForWeek, range } from '@/components/program/previewModel';
 import type { PreviewExercise, PreviewProgram } from '@/components/program/previewModel';
 
 /**
@@ -230,14 +230,27 @@ export function MobileProgramPreview({ program }: { program: PreviewProgram }) {
                   </span>
                 </div>
 
-                {d.exercises.map((ex, i) => (
-                  <ExRowPreview
-                    key={i}
-                    ex={ex}
-                    setsOverride={w?.setsOverride ?? null}
-                    first={i === 0}
-                  />
-                ))}
+                {d.exercises.map((ex, i) => {
+                  const prev = d.exercises[i - 1]?.superset ?? null;
+                  const next = d.exercises[i + 1]?.superset ?? null;
+                  const inGroup = ex.superset != null && (ex.superset === prev || ex.superset === next);
+                  const starts = inGroup && ex.superset !== prev;
+                  return (
+                    <div key={i} style={inGroup ? { borderLeft: `3px solid ${APP.accent}`, paddingLeft: 8 } : undefined}>
+                      {starts && (
+                        <div className="pt-1.5 text-[9.5px] font-bold uppercase tracking-wider" style={{ color: APP.accent }}>
+                          Superserie {ex.superset}
+                        </div>
+                      )}
+                      <ExRowPreview
+                        ex={ex}
+                        week={week}
+                        setsOverride={w?.setsOverride ?? null}
+                        first={i === 0 || (inGroup && !starts)}
+                      />
+                    </div>
+                  );
+                })}
               </Panel>
             ))
           )}
@@ -300,18 +313,21 @@ function Panel({
 
 function ExRowPreview({
   ex,
+  week,
   setsOverride,
   first,
 }: {
   ex: PreviewExercise;
+  week: number;
   setsOverride: number | null;
   first: boolean;
 }) {
-  // Only the set count is modulated by the week (deload) — see fidelity note.
-  const sets = setsOverride ?? ex.sets;
-  const reps = range(ex.repMin, ex.repMax);
-  const setsReps = ex.unilateral ? `${sets} × ${reps} / lado` : `${sets} × ${reps}`;
-  const rir = range(ex.rirMin, ex.rirMax);
+  // The week modulates the set count (deload); the exercise's own override
+  // for that week wins over it — same precedence as the app.
+  const eff = effectiveForWeek(ex, week, setsOverride);
+  const reps = range(eff.repMin, eff.repMax);
+  const setsReps = ex.unilateral ? `${eff.sets} × ${reps} / lado` : `${eff.sets} × ${reps}`;
+  const rir = range(eff.rirMin, eff.rirMax);
   const isGif = ex.videoUrl != null && IS_IMG.test(ex.videoUrl.split('?')[0]);
 
   return (
@@ -344,12 +360,12 @@ function ExRowPreview({
           <span className="text-[12px] font-medium tabular-nums" style={{ color: APP.secondary }}>
             {setsReps}
           </span>
-          {ex.loadPct != null && (
+          {eff.loadPct != null && (
             <Tag bg={APP.infoSoft} fg={APP.info}>
-              {ex.loadPct}%
+              {eff.loadPct}%
             </Tag>
           )}
-          {ex.loadPct == null && ex.loadQual && (
+          {eff.loadPct == null && ex.loadQual && (
             <Tag bg={APP.elevated} fg={APP.tertiary}>
               {LOAD_QUAL_ES[ex.loadQual] ?? ex.loadQual}
             </Tag>
@@ -357,6 +373,11 @@ function ExRowPreview({
           {rir !== '—' && (
             <Tag bg={APP.accentSoft} fg={APP.accent}>
               RIR {rir}
+            </Tag>
+          )}
+          {eff.adjusted && (
+            <Tag bg={APP.elevated} fg={APP.tertiary}>
+              Ajustado esta semana
             </Tag>
           )}
         </div>

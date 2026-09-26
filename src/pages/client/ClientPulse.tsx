@@ -1,5 +1,10 @@
-import { useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { getClientNote, saveClientNote } from '@/services/clients';
+import { errorMessage } from '@/lib/dbError';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import type { ClientWithMeta, SetLogWithContext } from '@/types';
 import { listProgramsForClient } from '@/services/programs';
 import { getClientCompletions, getClientMeasurements, getClientSetLogs, getClientSupplementDays } from '@/services/tracking';
@@ -64,6 +69,7 @@ export function ClientPulse({ client, onGoTab }: { client: ClientWithMeta; onGoT
           loading={loading}
         />
         <WeightCard data={measurements.data} loading={measurements.isPending} onGoTab={onGoTab} />
+        <CoachNotes clientId={client.id} />
       </div>
     </div>
   );
@@ -363,6 +369,64 @@ function WeightCard({
         <button type="button" onClick={() => onGoTab('progress')} className="mt-1 text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
           Ver medidas →
         </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------- coach notes */
+
+/** Private to the coach (client_notes has coach-only RLS): injuries, context,
+ *  reminders. Saved explicitly, not on every keystroke. */
+function CoachNotes({ clientId }: { clientId: string }) {
+  const queryClient = useQueryClient();
+  const note = useQuery({ queryKey: qk.clientNote(clientId), queryFn: () => getClientNote(clientId) });
+  // Only the coach's unsaved edit lives in state; otherwise show the saved note.
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? note.data ?? '';
+
+  const save = useMutation({
+    mutationFn: () => saveClientNote(clientId, text.trim()),
+    onSuccess: () => {
+      toast.success('Nota guardada');
+      queryClient.setQueryData(qk.clientNote(clientId), text.trim());
+      setDraft(null);
+    },
+    onError: (e) => toast.error(errorMessage(e, 'No se pudo guardar la nota')),
+  });
+
+  const dirty = typeof note.data === 'string' && text.trim() !== note.data.trim();
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-baseline justify-between space-y-0">
+        <CardTitle>Notas privadas</CardTitle>
+        <span className="text-xs text-faint">solo las ves tú</span>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2.5">
+        {note.isPending ? (
+          <Skeleton className="h-24 rounded-xl" />
+        ) : note.data === null ? (
+          <p className="text-[12.5px] text-faint">
+            Aplica la migración 20260926130000 en Supabase para activar las notas privadas.
+          </p>
+        ) : (
+          <>
+            <label htmlFor={`note-${clientId}`} className="sr-only">
+              Notas privadas del coach
+            </label>
+            <Textarea
+              id={`note-${clientId}`}
+              rows={4}
+              placeholder="Lesiones, contexto, recordatorios… El cliente no lo ve."
+              value={text}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <Button size="sm" className="w-fit" disabled={!dirty || save.isPending} onClick={() => save.mutate()}>
+              {save.isPending ? 'Guardando…' : 'Guardar nota'}
+            </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );
