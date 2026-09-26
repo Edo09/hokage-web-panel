@@ -43,24 +43,26 @@ Both functions return a **one-time temporary password** that the panel shows onc
 ## What's inside
 
 - **Login** (`/login`) — branded, coach-only, real Supabase Auth.
-- **Panel** (`/`) — KPI tiles, clients trend (recharts area, from real workout-log activity), workouts/week (bars), recent activity, expiring-soon list, quick actions.
-- **Clientes** (`/clients`) — searchable table (by name/email), skeletons, empty state, add-client modal (calls the Edge Function).
-- **Cliente** (`/clients/:id?tab=…`) — header + 5 tabs: Resumen, Rutinas (routine builder — exercises picked from the real shared catalog, assigns COACH routines), Nutrición (editable calorie goal + read-only meal display), Progreso (frequency chart + workout timeline), Membresía (status card + renew/pause/resume + edit form).
-- **Membresías** (`/memberships`) — filter pills, urgency-sorted table (expired/expiring highlighted), renew / pause (confirm) / resume quick actions.
-- **Ajustes** (`/settings`) — coach display name + WhatsApp (international digits) with a live mobile-app preview; updates the topbar.
+- **Panel** (`/`) — KPI tiles, clients trend, workouts/week, recent activity, expiring-soon list, quick actions.
+- **Clientes** (`/clients`) — searchable table, add-client modal (`create-client`).
+- **Cliente** (`/clients/:id?tab=…`) — header (with **Restablecer contraseña**) + tabs: Resumen, Programas (assign/build multi-week programs), Seguimiento (logged sets + completions), Nutrición (nutrition + supplement plans, calorie goal, logged meals with photos), Progreso, Membresía.
+- **Programas** (`/programs`) — program template library: builder with live mobile preview, assign, PDF export, archive.
+- **Nutrición** (`/nutrition`) — nutrition and supplement plan templates, same pattern as Programas.
+- **Ejercicios** (`/exercises`) — exercise catalog CRUD (name, body part, demo video).
+- **Membresías** (`/memberships`) — urgency-sorted table, renew / pause / resume.
+- **Ajustes** (`/settings`) — coach display name + WhatsApp with a live mobile-app preview.
+- **`/privacidad.html`** — static public privacy policy (`public/privacidad.html`) linked from the app's Ajustes and the store listings. Fill in its `[BRACKETED]` fields before publishing.
 
 ## Data layer
 
-The UI reads/writes data **only** through `src/services/clients.ts` and `src/services/exercises.ts` — real Supabase queries, RLS-authorized by the signed-in coach's JWT (`src/lib/supabaseClient.ts`). Types in `src/types.ts` mirror the real tables 1:1 (kept in sync with the mobile app's `src/types/database.ts`).
+The UI reads/writes data **only** through `src/services/*` — real Supabase queries, RLS-authorized by the signed-in coach's JWT (`src/lib/supabaseClient.ts`). Types in `src/types.ts` mirror the real tables (kept in sync with the mobile app's `src/types/database.ts`).
 
 Auth: `src/hooks/useAuth.tsx` wraps `supabase.auth` + a `role === 'coach'` guard; `src/hooks/useCoach.tsx` reads/writes the coach's own profile row.
 
-## Known gaps (not built here)
+## Known gaps
 
-- **Multi-week Programs** (periodized training blocks — sets×rep-range, RIR, %1RM, deload weeks) exist in the mobile app and DB (`programs`, `program_days`, `program_exercises`, `program_weeks`) but have **no builder UI here yet**. This panel only assigns the simpler flat `routines`. See `docs/COACH-PROGRAMS-SPEC.md` and `docs/COACH-ADMIN-PANEL-PRD.md §6.4` for the intended Program Builder screen — the next major addition.
-- Exercise **catalog management** (add/edit/delete movements + videos) has no dedicated screen — the routine builder only browses it.
-- Meal-plan **authoring** (assign new meals/items to a client) isn't built; the Nutrición tab is read-only for meals, editable only for the calorie goal — matches the product's own "próxima iteración" note already in the UI copy.
-- Body measurements (weight/composition trend) aren't surfaced in Progreso.
+- Body measurements (weight/composition trend) aren't surfaced in Progreso yet.
+- Payments, push notifications, announcements and client check-ins are out of scope for now (see `docs/COACH-ADMIN-PANEL-PRD.md`).
 
 ## Structure
 
@@ -74,8 +76,10 @@ src/
     ui/                    # shadcn-style primitives (button, dialog, tabs, select…)
     layout/                # AppShell, Sidebar (collapsible), TopBar
     shared/                # StatTile, StatusBadge/OwnerBadge, Avatar, charts,
-                           # EmptyState, TableSkeleton, AddClientDialog
-  pages/                   # One file per route; client/ holds the 5 detail tabs
+                           # EmptyState, TableSkeleton, AddClientDialog,
+                           # ResetPasswordDialog, TempPasswordReveal
+    program/, nutrition/   # Builders + mobile previews
+  pages/                   # One file per route; client/ holds the detail tabs
 ```
 
 Design reference: the interactive prototype lives in the `design_handoff_hokage_admin/` package (same repo/project) — open `design/Hokage Admin.dc.html` in a browser.
