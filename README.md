@@ -40,13 +40,25 @@ The service-role key is provided to functions automatically. Until the functions
 
 Both functions return a **one-time temporary password** that the panel shows once (copy button) for the coach to share with the client over WhatsApp. The client signs in with it and changes it in the app's **Ajustes → Cambiar contraseña**. No email delivery is involved anywhere in this flow; a client who forgot their password asks the coach, who uses **Restablecer contraseña** on the client's page.
 
+## Deploy the AI program assistant
+
+The builder's **Generar / Editar con IA** button calls a third Edge Function, `generate-program` (same repo), which holds the Gemini/Groq keys server-side. It only drafts: the result lands in the builder and nothing is saved until the coach saves. From the mobile app repo:
+
+```bash
+supabase functions deploy generate-program --project-ref rzgwkwxskrovxnnymxqo
+# Either key alone works; with both, Groq is only the fallback.
+supabase secrets set GEMINI_API_KEY=<key> GROQ_API_KEY=<key> --project-ref rzgwkwxskrovxnnymxqo
+```
+
+It uses the same `ALLOWED_ORIGINS` secret as the account functions. Details: `docs/ADMIN_WEB_DB_CONNECTION.md` §6.3 in the mobile app repo.
+
 ## What's inside
 
 - **Login** (`/login`) — branded, coach-only, real Supabase Auth.
 - **Panel** (`/`) — KPI tiles, clients trend, workouts/week, recent activity, expiring-soon list, quick actions.
 - **Clientes** (`/clients`) — searchable table, add-client modal (`create-client`).
 - **Cliente** (`/clients/:id?tab=…`) — header (with **Restablecer contraseña**) + tabs: Resumen, Programas (assign/build multi-week programs), Seguimiento (logged sets + completions), Nutrición (nutrition + supplement plans, calorie goal, logged meals with photos), Progreso, Membresía.
-- **Programas** (`/programs`) — program template library: builder with live mobile preview, assign, PDF export, archive.
+- **Programas** (`/programs`) — program template library: builder with live mobile preview and an AI assistant that drafts or edits a program from a prompt (`generate-program`), assign, PDF export, archive.
 - **Nutrición** (`/nutrition`) — nutrition and supplement plan templates, same pattern as Programas.
 - **Ejercicios** (`/exercises`) — exercise catalog CRUD (name, body part, demo video).
 - **Membresías** (`/memberships`) — urgency-sorted table, renew / pause / resume.

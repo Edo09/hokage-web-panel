@@ -154,6 +154,25 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     notes,
   };
 
+  /** The whole draft as it stands — what the AI assistant edits, and what
+   *  its "Deshacer" puts back. */
+  const snapshot = (): DraftData => ({ ...header, days, weeks });
+
+  /** Replace the whole draft at once (an AI result, or undoing one). */
+  const replaceDraft = (next: DraftData) => {
+    setName(next.name);
+    setFocus(next.focus);
+    setDescription(next.description);
+    setDurationWeeks(next.durationWeeks);
+    setStartDate(next.startDate);
+    setStatus(next.status);
+    setProgressionRule(next.progressionRule);
+    setTempoDefault(next.tempoDefault);
+    setNotes(next.notes);
+    setDays(next.days);
+    setWeeks(resizeWeeks(next.weeks, clamp(parseInt(next.durationWeeks, 10) || 1, 1, 52)));
+  };
+
   /** Validates and saves. `onInvalid` lets the caller bring the failing field
    *  into view (a wizard step, a day tab, a week). */
   const submit = async (onInvalid: (where: ProgramInvalid | { step: 0; message: string }) => void) => {
@@ -227,6 +246,7 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
 
   return {
     isTemplate,
+    clientId: client?.id ?? null,
     initial,
     firstName,
     catalog,
@@ -260,6 +280,8 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     updDay,
     updEx,
     updWeek,
+    snapshot,
+    replaceDraft,
     saving,
     submit,
     weeksN,

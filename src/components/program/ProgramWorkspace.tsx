@@ -11,6 +11,7 @@ import {
   RotateCcw,
   Search,
   Smartphone,
+  Sparkles,
   Trash2,
 } from 'lucide-react';
 import type { Exercise, ProgramStatus } from '@/types';
@@ -23,6 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
+import { AiProgramDialog } from '@/components/program/AiProgramDialog';
 import {
   bodyPartLabel,
   emptyDay,
@@ -103,6 +105,7 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
     !!(props.initial?.progression_rule || props.initial?.tempo_default || props.initial?.description || props.initial?.notes),
   );
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   const day = b.days[Math.min(activeDay, b.days.length - 1)];
@@ -183,8 +186,21 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
         detailsOpen={detailsOpen}
         onToggleDetails={() => setDetailsOpen((v) => !v)}
         onPreview={() => setPreviewOpen(true)}
+        onAi={() => setAiOpen(true)}
         onCancel={props.onClose}
         onSave={() => void submit()}
+      />
+
+      <AiProgramDialog
+        b={b}
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        onApplied={() => {
+          setActiveDay(0);
+          setSelWeek(0);
+          // The AI fills progression rule, tempo and notes too — show them.
+          setDetailsOpen(true);
+        }}
       />
 
       <PeriodizationStrip b={b} selWeek={selWeek} onSelect={setSelWeek} />
@@ -277,6 +293,7 @@ function WorkspaceHeader({
   detailsOpen,
   onToggleDetails,
   onPreview,
+  onAi,
   onCancel,
   onSave,
 }: {
@@ -285,6 +302,7 @@ function WorkspaceHeader({
   detailsOpen: boolean;
   onToggleDetails: () => void;
   onPreview: () => void;
+  onAi: () => void;
   onCancel: () => void;
   onSave: () => void;
 }) {
@@ -326,6 +344,9 @@ function WorkspaceHeader({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" onClick={onAi} disabled={!b.catalog?.length} className="border-primary/60 text-primary hover:bg-primary/10">
+            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} /> {b.exCount > 0 ? 'Editar con IA' : 'Generar con IA'}
+          </Button>
           <Button variant="outline" onClick={onToggleDetails} aria-expanded={detailsOpen}>
             Detalles {detailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
