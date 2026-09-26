@@ -1,10 +1,16 @@
 import { useMemo } from 'react';
-import { Dumbbell } from 'lucide-react';
-import type { ClientWithMeta } from '@/types';
+import { useQuery } from '@tanstack/react-query';
+import { Dumbbell, Ruler } from 'lucide-react';
+import type { BodyMeasurement, ClientWithMeta } from '@/types';
+import { getClientMeasurements } from '@/services/tracking';
+import { qk } from '@/lib/queryClient';
 import { daysDiff, fmtShort } from '@/lib/utils';
+import { kgToDisplay, type WeightUnit } from '@/lib/weightUnit';
+import { useWeightUnit } from '@/hooks/useWeightUnit';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { WeeklyBarChart, type WeekBar } from '@/components/shared/charts';
+import { TrendAreaChart, WeeklyBarChart, type WeekBar } from '@/components/shared/charts';
 
 export function ProgressTab({ client }: { client: ClientWithMeta }) {
   const { bars, total, avg, recent } = useMemo(() => {
@@ -25,6 +31,8 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(300px,1.1fr)_minmax(320px,1.6fr)]">
+      <MeasurementsCard client={client} />
+
       <Card>
         <CardHeader className="flex-row items-baseline justify-between space-y-0">
           <CardTitle>Frecuencia semanal</CardTitle>
@@ -83,5 +91,105 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+type MetricKey = 'weight_kg' | 'body_fat_pct' | 'waist_cm' | 'chest_cm' | 'arm_cm' | 'thigh_cm';
+
+const METRICS: { key: MetricKey; label: string }[] = [
+  { key: 'weight_kg', label: 'Peso' },
+  { key: 'body_fat_pct', label: 'Grasa corporal' },
+  { key: 'waist_cm', label: 'Cintura' },
+  { key: 'chest_cm', label: 'Pecho' },
+  { key: 'arm_cm', label: 'Brazo' },
+  { key: 'thigh_cm', label: 'Muslo' },
+];
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** A metric in display units: weight follows the coach's kg/lb choice. */
+function displayValue(key: MetricKey, value: number, unit: WeightUnit): { value: number; suffix: string } {
+  if (key === 'weight_kg') return { value: round1(kgToDisplay(value, unit)), suffix: unit };
+  if (key === 'body_fat_pct') return { value: round1(value), suffix: '%' };
+  return { value: round1(value), suffix: 'cm' };
+}
+
+/** Latest value of each metric, with the change since the first time it was
+ *  measured. Metrics the client never logged are left out. */
+function summarize(rows: BodyMeasurement[]) {
+  return METRICS.flatMap(({ key, label }) => {
+    const points = rows.filter((r) => r[key] != null);
+    if (points.length === 0) return [];
+    const first = points[0];
+    const last = points[points.length - 1];
+    return [{ key, label, latest: last[key]!, delta: last[key]! - first[key]!, since: first.measured_on, on: last.measured_on }];
+  });
+}
+
+function MeasurementsCard({ client }: { client: ClientWithMeta }) {
+  const { unit } = useWeightUnit();
+  const { data: rows, isLoading, isError } = useQuery({
+    queryKey: qk.measurements(client.id),
+    queryFn: () => getClientMeasurements(client.id),
+  });
+
+  const weights = useMemo(
+    () => (rows ?? []).filter((r) => r.weight_kg != null).map((r) => round1(kgToDisplay(r.weight_kg!, unit))),
+    [rows, unit],
+  );
+  const metrics = useMemo(() => summarize(rows ?? []), [rows]);
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader className="flex-row items-baseline justify-between space-y-0">
+        <CardTitle>Medidas corporales</CardTitle>
+        {metrics.length > 0 && (
+          <span className="text-xs text-faint">
+            {rows!.length} registro{rows!.length === 1 ? '' : 's'} · desde {fmtShort(rows![0].measured_on)}
+          </span>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <Skeleton className="h-[150px] rounded-xl" />
+        ) : isError ? (
+          <p className="py-6 text-center text-[13px] text-faint">No se pudieron cargar las medidas.</p>
+        ) : metrics.length === 0 ? (
+          <EmptyState
+            icon={Ruler}
+            title="Aún sin medidas"
+            description={`Cuando ${(client.display_name ?? client.email).split(' ')[0]} registre su peso o medidas en la app, aparecerán aquí.`}
+            className="py-9"
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {weights.length >= 2 && (
+              <div>
+                <div className="mb-1 text-[11.5px] font-semibold text-faint">Tendencia de peso ({unit})</div>
+                <TrendAreaChart data={weights} />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              {metrics.map((m) => {
+                const latest = displayValue(m.key, m.latest, unit);
+                const delta = displayValue(m.key, m.delta, unit).value;
+                return (
+                  <div key={m.key} className="rounded-xl border border-border px-3 py-2.5">
+                    <div className="text-[11.5px] font-semibold text-faint">{m.label}</div>
+                    <div className="font-heading text-lg font-bold">
+                      {latest.value} <span className="text-xs font-semibold text-muted-foreground">{latest.suffix}</span>
+                    </div>
+                    <div className="text-[11px] text-faint">
+                      {delta === 0 ? 'Sin cambio' : `${delta > 0 ? '+' : ''}${delta} ${latest.suffix}`} desde{' '}
+                      {fmtShort(m.since)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -9,7 +9,13 @@
  * 20260717130000_program_exercise_completions.sql.
  */
 import { supabase } from '@/lib/supabaseClient';
-import type { ActivityItem, ExerciseCompletionWithContext, ProgramExerciseContext, SetLogWithContext } from '@/types';
+import type {
+  ActivityItem,
+  BodyMeasurement,
+  ExerciseCompletionWithContext,
+  ProgramExerciseContext,
+  SetLogWithContext,
+} from '@/types';
 
 const PROGRAM_EXERCISE_CONTEXT =
   'program_exercise:program_exercises(id, sets, rep_min, rep_max, is_unilateral, rir_min, rir_max, load_pct_1rm, custom_name, exercise:exercises(name), program_day:program_days(label, program:programs(id, name)))';
@@ -42,6 +48,18 @@ export async function getClientCompletions(clientId: string): Promise<ExerciseCo
     .order('completed_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as unknown as ExerciseCompletionWithContext[];
+}
+
+/** A client's body measurements, oldest first (chart order). RLS: "coach
+ *  reads all measurements" (20260717140000_body_measurements_coach_read.sql). */
+export async function getClientMeasurements(clientId: string): Promise<BodyMeasurement[]> {
+  const { data, error } = await supabase
+    .from('body_measurements')
+    .select('*')
+    .eq('user_id', clientId)
+    .order('measured_on', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as BodyMeasurement[];
 }
 
 interface ActivityRow {

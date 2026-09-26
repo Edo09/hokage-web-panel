@@ -284,6 +284,21 @@ export interface ProgramExerciseContext {
   } | null;
 }
 
+/** `body_measurements` row — one per client per day, logged from the app
+ *  (weight also mirrors profiles.weight_kg). Coach read access:
+ *  20260717140000_body_measurements_coach_read.sql. */
+export interface BodyMeasurement {
+  id: string;
+  user_id: string;
+  measured_on: string;
+  weight_kg: number | null;
+  body_fat_pct: number | null;
+  waist_cm: number | null;
+  chest_cm: number | null;
+  arm_cm: number | null;
+  thigh_cm: number | null;
+}
+
 /** A set log joined to the prescription it was logged against (for the coach
  *  tracking view: actuals vs plan). */
 export interface SetLogWithContext extends WorkoutSetLog {

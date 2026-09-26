@@ -34,5 +34,6 @@ export const qk = {
   programCompletions: (clientId: string) => ['program-completions', clientId] as const,
   setLogs: (clientId: string) => ['set-logs', clientId] as const,
   completions: (clientId: string) => ['completions', clientId] as const,
+  measurements: (clientId: string) => ['measurements', clientId] as const,
   recentActivity: ['recent-activity'] as const,
 };
