@@ -4,17 +4,17 @@ import { BODY_ART } from '@/components/muscles/bodyArt';
 
 /**
  * One human figure (front or back) with each muscle filled by its group.
- * Non-muscle parts (head, hands, feet, joints) stay quiet. Clicking a muscle
- * picks its group; clicking anything else clears. Outlines use a
- * non-scaling stroke, so they're the same width at any figure size.
+ * Non-muscle parts (head, hands, feet, joints) stay quiet. Hovering a muscle
+ * reports its group; clicking picks it (anything else clears); `faded`
+ * groups drop back so a picked one stands out.
  */
 export function BodyFigure({
   gender,
   side,
   label,
   fillFor,
-  outlineFor,
-  titleFor,
+  fadedFor,
+  onHover,
   onPick,
   className,
 }: {
@@ -24,10 +24,9 @@ export function BodyFigure({
   label: string;
   /** CSS colour for a group's muscles. */
   fillFor: (group: MuscleGroup) => string;
-  /** CSS colour of the group's outline, or null for none. */
-  outlineFor?: (group: MuscleGroup) => string | null;
-  /** Hover tooltip for a group's muscles. */
-  titleFor?: (group: MuscleGroup) => string;
+  /** Whether a group should drop back (another one is picked). */
+  fadedFor?: (group: MuscleGroup) => boolean;
+  onHover?: (group: MuscleGroup | null) => void;
   onPick?: (group: MuscleGroup | null) => void;
   className?: string;
 }) {
@@ -37,25 +36,31 @@ export function BodyFigure({
     // a little between front/back and male/female); the default
     // preserveAspectRatio centres each drawing in it, so a front and a back
     // side by side line up.
-    <svg viewBox={art.viewBox} role="img" aria-label={label} className={cn('aspect-[1/2] w-full', className)}>
+    <svg
+      viewBox={art.viewBox}
+      role="img"
+      aria-label={label}
+      className={cn('aspect-[1/2] w-full', className)}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
+    >
       {art.parts.map((part) => {
         const group = SLUG_GROUP.get(part.slug);
-        const outline = group ? (outlineFor?.(group) ?? null) : null;
         return (
           <g
             key={part.slug}
             onClick={onPick ? () => onPick(group ?? null) : undefined}
+            onMouseEnter={onHover ? () => onHover(group ?? null) : undefined}
             className={cn(
-              group && onPick && 'cursor-pointer transition-opacity hover:opacity-75 motion-reduce:transition-none',
+              'transition-opacity motion-reduce:transition-none',
+              group && onPick && 'cursor-pointer',
             )}
-            style={{ fill: group ? fillFor(group) : 'hsl(var(--border))' }}
-            stroke={outline ?? 'none'}
-            strokeWidth={outline ? 2 : 0}
-            strokeLinejoin="round"
+            style={{
+              fill: group ? fillFor(group) : 'hsl(var(--border))',
+              opacity: group && fadedFor?.(group) ? 0.22 : 1,
+            }}
           >
-            {group && titleFor && <title>{titleFor(group)}</title>}
             {part.paths.map((d, i) => (
-              <path key={i} d={d} vectorEffect="non-scaling-stroke" />
+              <path key={i} d={d} />
             ))}
           </g>
         );
