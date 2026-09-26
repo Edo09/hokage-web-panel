@@ -148,8 +148,63 @@
     @apply border-border;
   }
 
+  /* Custom scrollbars instead of the OS's wide light default: a slim rounded
+     thumb on a clear track, no arrow buttons; it thickens and lightens under
+     the pointer and turns brand red while dragged. Chromium and Safari style
+     it fully via ::-webkit-scrollbar. Firefox can't — it gets a thin,
+     theme-coloured bar (the standard properties are kept to Firefox because
+     in Chromium they'd switch the ::-webkit-scrollbar styling off). */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: hsl(var(--border-strong)) transparent;
+    }
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+  ::-webkit-scrollbar-thumb {
+    /* A 4px bar inside a 10px target: the transparent border keeps it easy
+       to grab without looking heavy. */
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-color: hsl(var(--border-strong));
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    border-width: 2px;
+    background-color: hsl(var(--faint));
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: hsl(var(--primary));
+  }
+
+  /* Native controls (scrollbars, date pickers) follow the dark theme. */
+  .dark {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-background font-sans text-sm text-foreground antialiased;
+  }
+}
+
+@layer utilities {
+  /* Scrolls without a visible bar — for the phone replica, where a desktop
+     scrollbar breaks the illusion. Always pair it with another cue (a fade). */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }
 

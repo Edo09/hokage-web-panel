@@ -832,7 +832,7 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
             Así verá {isTemplate ? 'el cliente' : firstName} este bloque. Toca las semanas para
             comprobar la periodización.
           </p>
-          <MobileProgramPreview program={preview} />
+          <MobileProgramPreview program={preview} fitToViewport />
         </DialogContent>
       </Dialog>
 

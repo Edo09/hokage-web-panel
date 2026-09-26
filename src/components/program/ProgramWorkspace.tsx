@@ -329,7 +329,7 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
           <DialogHeader>
             <DialogTitle>Vista previa · app del cliente</DialogTitle>
           </DialogHeader>
-          <MobileProgramPreview program={b.preview} />
+          <MobileProgramPreview program={b.preview} fitToViewport />
         </DialogContent>
       </Dialog>
     </div>

@@ -359,7 +359,7 @@ export function ProgramsTab({ client }: { client: ClientWithMeta }) {
           <DialogHeader>
             <DialogTitle>Vista previa · app del cliente</DialogTitle>
           </DialogHeader>
-          {previewing && <MobileProgramPreview program={programToPreview(previewing)} />}
+          {previewing && <MobileProgramPreview program={programToPreview(previewing)} fitToViewport />}
         </DialogContent>
       </Dialog>
 
