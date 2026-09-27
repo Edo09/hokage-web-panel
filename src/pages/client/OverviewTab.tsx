@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { MuscleMap } from '@/components/muscles/MuscleMap';
-import { ClientPulse } from './ClientPulse';
+import { ClientPulse, CoachNotes } from './ClientPulse';
 
 const TONE_CLASS = {
   normal: 'text-foreground',
@@ -86,7 +86,7 @@ function TrainingPlanCard({ client, onChanged }: { client: ClientWithMeta; onCha
   };
 
   return (
-    <Card style={{ gridColumn: '1 / -1' }}>
+    <Card className="md:col-span-2">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Dumbbell className="h-4 w-4 text-primary" strokeWidth={2.25} />
@@ -187,73 +187,78 @@ export function OverviewTab({
 
   return (
     <div className="flex flex-col gap-4">
-    <ClientPulse client={client} onGoTab={onGoTab} />
-    <MuscleMap client={client} />
-    <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Métricas</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3">
-          <Metric label="Peso actual" value={formatWeight(client.weight_kg, unit)} />
-          <Metric label="IMC" value={bmi} />
-          <Metric label="Días/semana" value={client.days_per_week ?? '—'} />
-          <Metric
-            label="Duración sesión"
-            value={client.session_duration ? `${client.session_duration} min` : '—'}
-          />
-        </CardContent>
-      </Card>
+      <MuscleMap client={client} />
+      {/* One grid, every row full; cards in a row share its height.
+          xl: block (2) + adherence / last session (2) + weight /
+              métricas + calorías + membresía / plan (2) + notes.
+          md: two columns, the wide cards take a row each. */}
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <ClientPulse client={client} onGoTab={onGoTab} />
+        <Card>
+          <CardHeader>
+            <CardTitle>Métricas</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3">
+            <Metric label="Peso actual" value={formatWeight(client.weight_kg, unit)} />
+            <Metric label="IMC" value={bmi} />
+            <Metric label="Días/semana" value={client.days_per_week ?? '—'} />
+            <Metric
+              label="Duración sesión"
+              value={client.session_duration ? `${client.session_duration} min` : '—'}
+            />
+          </CardContent>
+        </Card>
 
-      <Card className="flex flex-col">
-        <CardHeader>
-          <CardTitle>Meta de calorías</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-1 flex-col">
-          <div className="flex items-baseline gap-1.5">
-            <span className="font-heading text-[34px] font-bold text-primary">
-              {(client.calorie_goal ?? 0).toLocaleString('en-US')}
-            </span>
-            <span className="text-[13px] text-faint">kcal / día</span>
-          </div>
-          <p className="mt-2 text-[12.5px] text-muted-foreground">
-            Visible para el cliente en la app móvil. Edítala en la pestaña Nutrición.
-          </p>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" className="mt-3.5 w-fit" onClick={() => onGoTab('nutrition')}>
-            Editar meta
-          </Button>
-        </CardContent>
-      </Card>
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>Meta de calorías</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-heading text-[34px] font-bold text-primary">
+                {(client.calorie_goal ?? 0).toLocaleString('en-US')}
+              </span>
+              <span className="text-[13px] text-faint">kcal / día</span>
+            </div>
+            <p className="mt-2 text-[12.5px] text-muted-foreground">
+              Visible para el cliente en la app móvil. Edítala en la pestaña Nutrición.
+            </p>
+            <div className="flex-1" />
+            <Button variant="outline" size="sm" className="mt-3.5 w-fit" onClick={() => onGoTab('nutrition')}>
+              Editar meta
+            </Button>
+          </CardContent>
+        </Card>
 
-      <Card className="flex flex-col">
-        <CardHeader>
-          <CardTitle>Membresía</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-1 flex-col">
-          <div className="flex flex-col gap-2 text-[13px]">
-            <div className="flex justify-between gap-2.5">
-              <span className="text-faint">Plan</span>
-              <span className="font-semibold">{client.membership?.plan_name ?? 'Sin plan'}</span>
+        <Card className="flex flex-col">
+          <CardHeader>
+            <CardTitle>Membresía</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col">
+            <div className="flex flex-col gap-2 text-[13px]">
+              <div className="flex justify-between gap-2.5">
+                <span className="text-faint">Plan</span>
+                <span className="font-semibold">{client.membership?.plan_name ?? 'Sin plan'}</span>
+              </div>
+              <div className="flex justify-between gap-2.5">
+                <span className="text-faint">Precio</span>
+                <span className="font-semibold">{money(client.membership?.price ?? null) + per}</span>
+              </div>
+              <div className="flex justify-between gap-2.5">
+                <span className="text-faint">Vence</span>
+                <span className={cn('font-semibold', TONE_CLASS[exp.tone])}>{exp.label}</span>
+              </div>
             </div>
-            <div className="flex justify-between gap-2.5">
-              <span className="text-faint">Precio</span>
-              <span className="font-semibold">{money(client.membership?.price ?? null) + per}</span>
-            </div>
-            <div className="flex justify-between gap-2.5">
-              <span className="text-faint">Vence</span>
-              <span className={cn('font-semibold', TONE_CLASS[exp.tone])}>{exp.label}</span>
-            </div>
-          </div>
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" className="mt-3.5 w-fit" onClick={() => onGoTab('membership')}>
-            Gestionar
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="flex-1" />
+            <Button variant="outline" size="sm" className="mt-3.5 w-fit" onClick={() => onGoTab('membership')}>
+              Gestionar
+            </Button>
+          </CardContent>
+        </Card>
 
-      <TrainingPlanCard client={client} onChanged={onChanged} />
-    </div>
+        <TrainingPlanCard client={client} onChanged={onChanged} />
+        <CoachNotes clientId={client.id} className="md:col-span-2 xl:col-span-1" />
+      </div>
     </div>
   );
 }

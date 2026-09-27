@@ -18,10 +18,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { TrendAreaChart } from '@/components/shared/charts';
 
 /*
- * The client at a glance, on top of Resumen: where they are in their block,
- * what they did last session against the prescription, how consistent the
- * last 4 weeks were, and where their weight is going. Reads the same queries
- * the Programas / Seguimiento / Progreso tabs use, so the data is shared.
+ * The client at a glance, on Resumen: where they are in their block, what
+ * they did last session against the prescription, how consistent the last 4
+ * weeks were, and where their weight is going. Reads the same queries the
+ * Programas / Seguimiento / Progreso tabs use, so the data is shared.
+ *
+ * Renders grid items, not a box of its own: the first two rows of Resumen's
+ * card grid (OverviewTab: 2 columns from md, 3 from xl). Each row is full at
+ * both widths, so no card leaves a hole beside it.
  */
 
 const DAY = 86_400_000;
@@ -53,25 +57,29 @@ export function ClientPulse({ client, onGoTab }: { client: ClientWithMeta; onGoT
 
   const loading = programs.isPending || setLogs.isPending || completions.isPending;
 
+  // xl: block (2) + adherence, then last session (2) + weight. md: the wide
+  // cards and adherence take a row each; weight shares one with Métricas.
   return (
-    <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-      <div className="flex min-w-0 flex-col gap-4">
-        <BlockTimeline program={program} activeDays={activeDays} loading={loading} onGoTab={onGoTab} />
-        <LastSession logs={setLogs.data} loading={setLogs.isPending} onGoTab={onGoTab} />
-      </div>
-      <div className="flex min-w-0 flex-col gap-4">
-        <Adherence
-          client={client}
-          daysPerWeek={program ? Math.max(1, program.program_days.length) : client.days_per_week}
-          activeDays={activeDays}
-          supplementDays={supplementDays.data ?? null}
-          hasSupplementPlan={client.supplementPlans.some((p) => p.status === 'active')}
-          loading={loading}
-        />
-        <WeightCard data={measurements.data} loading={measurements.isPending} onGoTab={onGoTab} />
-        <CoachNotes clientId={client.id} />
-      </div>
-    </div>
+    <>
+      <BlockTimeline
+        className="min-w-0 md:col-span-2"
+        program={program}
+        activeDays={activeDays}
+        loading={loading}
+        onGoTab={onGoTab}
+      />
+      <Adherence
+        className="md:col-span-2 xl:col-span-1"
+        client={client}
+        daysPerWeek={program ? Math.max(1, program.program_days.length) : client.days_per_week}
+        activeDays={activeDays}
+        supplementDays={supplementDays.data ?? null}
+        hasSupplementPlan={client.supplementPlans.some((p) => p.status === 'active')}
+        loading={loading}
+      />
+      <LastSession className="min-w-0 md:col-span-2" logs={setLogs.data} loading={setLogs.isPending} onGoTab={onGoTab} />
+      <WeightCard data={measurements.data} loading={measurements.isPending} onGoTab={onGoTab} />
+    </>
   );
 }
 
@@ -82,16 +90,18 @@ function BlockTimeline({
   activeDays,
   loading,
   onGoTab,
+  className,
 }: {
+  className?: string;
   program: { name: string; start_date: string; duration_weeks: number; program_days: unknown[]; program_weeks: { week_number: number; label: string | null; is_deload: boolean }[] } | null;
   activeDays: Set<string>;
   loading: boolean;
   onGoTab: (tab: string) => void;
 }) {
-  if (loading) return <Skeleton className="h-[170px] rounded-2xl" />;
+  if (loading) return <Skeleton className={cn('h-[170px] rounded-2xl', className)} />;
   if (!program) {
     return (
-      <Card>
+      <Card className={className}>
         <CardHeader className="flex-row items-baseline justify-between space-y-0">
           <CardTitle>Sin bloque activo</CardTitle>
           <button type="button" onClick={() => onGoTab('programs')} className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
@@ -117,7 +127,7 @@ function BlockTimeline({
   });
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="flex-row items-baseline justify-between gap-3 space-y-0">
         <div className="min-w-0">
           <CardTitle className="truncate">{program.name}</CardTitle>
@@ -165,13 +175,23 @@ function BlockTimeline({
 
 const exName = (l: SetLogWithContext) => l.program_exercise?.exercise?.name ?? l.program_exercise?.custom_name ?? l.exercise_name ?? 'Ejercicio';
 
-function LastSession({ logs, loading, onGoTab }: { logs: SetLogWithContext[] | undefined; loading: boolean; onGoTab: (tab: string) => void }) {
+function LastSession({
+  logs,
+  loading,
+  onGoTab,
+  className,
+}: {
+  logs: SetLogWithContext[] | undefined;
+  loading: boolean;
+  onGoTab: (tab: string) => void;
+  className?: string;
+}) {
   const { unit } = useWeightUnit();
-  if (loading) return <Skeleton className="h-[220px] rounded-2xl" />;
+  if (loading) return <Skeleton className={cn('h-[220px] rounded-2xl', className)} />;
   const withData = (logs ?? []).filter((l) => l.weight_kg != null || l.reps != null);
   if (withData.length === 0) {
     return (
-      <Card>
+      <Card className={className}>
         <CardHeader>
           <CardTitle>Última sesión</CardTitle>
         </CardHeader>
@@ -203,7 +223,7 @@ function LastSession({ logs, loading, onGoTab }: { logs: SetLogWithContext[] | u
   const w = (kg: number | null) => (kg == null ? '—' : String(Math.round(kgToDisplay(kg, unit) * 10) / 10));
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
         <CardTitle>Última sesión vs. plan</CardTitle>
         <span className="text-xs text-faint">{fmtShort(lastDate)}</span>
@@ -257,7 +277,9 @@ function Adherence({
   supplementDays,
   hasSupplementPlan,
   loading,
+  className,
 }: {
+  className?: string;
   client: ClientWithMeta;
   daysPerWeek: number | null;
   activeDays: Set<string>;
@@ -265,7 +287,7 @@ function Adherence({
   hasSupplementPlan: boolean;
   loading: boolean;
 }) {
-  if (loading) return <Skeleton className="h-[170px] rounded-2xl" />;
+  if (loading) return <Skeleton className={cn('h-[170px] rounded-2xl', className)} />;
   const window28 = new Set(Array.from({ length: 28 }, (_, i) => keyDaysAgo(i)));
   const trained = [...activeDays].filter((d) => window28.has(d)).length;
   const planned = daysPerWeek ? daysPerWeek * 4 : null;
@@ -276,7 +298,7 @@ function Adherence({
   const C = 2 * Math.PI * R;
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
         <CardTitle>Adherencia · 4 semanas</CardTitle>
       </CardHeader>
@@ -342,7 +364,7 @@ function WeightCard({
   const series = rows.slice(-12).map((r) => Math.round(kgToDisplay(r.weight_kg!, unit) * 10) / 10);
 
   return (
-    <Card>
+    <Card className="flex flex-col">
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
         <CardTitle>Peso corporal</CardTitle>
         {delta != null && (
@@ -352,7 +374,7 @@ function WeightCard({
           </span>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-1 flex-col">
         {!latest ? (
           <p className="text-[12.5px] text-faint">Aún no ha registrado su peso.</p>
         ) : (
@@ -366,7 +388,9 @@ function WeightCard({
             )}
           </>
         )}
-        <button type="button" onClick={() => onGoTab('progress')} className="mt-1 text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
+        {/* Keeps the link at the bottom when the row is taller */}
+        <div className="flex-1" />
+        <button type="button" onClick={() => onGoTab('progress')} className="mt-1 w-fit text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
           Ver medidas →
         </button>
       </CardContent>
@@ -377,8 +401,9 @@ function WeightCard({
 /* ------------------------------------------------------------- coach notes */
 
 /** Private to the coach (client_notes has coach-only RLS): injuries, context,
- *  reminders. Saved explicitly, not on every keystroke. */
-function CoachNotes({ clientId }: { clientId: string }) {
+ *  reminders. Saved explicitly, not on every keystroke. The text box grows
+ *  to the height of its grid row. */
+export function CoachNotes({ clientId, className }: { clientId: string; className?: string }) {
   const queryClient = useQueryClient();
   const note = useQuery({ queryKey: qk.clientNote(clientId), queryFn: () => getClientNote(clientId) });
   // Only the coach's unsaved edit lives in state; otherwise show the saved note.
@@ -398,12 +423,12 @@ function CoachNotes({ clientId }: { clientId: string }) {
   const dirty = typeof note.data === 'string' && text.trim() !== note.data.trim();
 
   return (
-    <Card>
+    <Card className={cn('flex flex-col', className)}>
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
         <CardTitle>Notas privadas</CardTitle>
         <span className="text-xs text-faint">solo las ves tú</span>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2.5">
+      <CardContent className="flex flex-1 flex-col gap-2.5">
         {note.isPending ? (
           <Skeleton className="h-24 rounded-xl" />
         ) : note.data === null ? (
@@ -418,6 +443,7 @@ function CoachNotes({ clientId }: { clientId: string }) {
             <Textarea
               id={`note-${clientId}`}
               rows={4}
+              className="min-h-24 flex-1"
               placeholder="Lesiones, contexto, recordatorios… El cliente no lo ve."
               value={text}
               onChange={(e) => setDraft(e.target.value)}
