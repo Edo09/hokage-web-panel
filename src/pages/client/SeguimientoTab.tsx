@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
 import type { ClientWithMeta, ExerciseCompletionWithContext, ProgramExerciseContext, SetLogWithContext } from '@/types';
@@ -10,23 +10,7 @@ import { formatWeight } from '@/lib/weightUnit';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/shared/EmptyState';
-
-// Lazy: the body artwork behind it is ~100 KB, only needed on this tab.
-const MuscleMapCard = lazy(() => import('@/components/muscles/MuscleMapCard'));
-
-function MuscleMap({ client }: { client: ClientWithMeta }) {
-  return (
-    <Suspense
-      fallback={
-        <Card className="p-5">
-          <div className="text-[13px] text-faint">Cargando músculos…</div>
-        </Card>
-      }
-    >
-      <MuscleMapCard client={client} />
-    </Suspense>
-  );
-}
+import { MuscleMap } from '@/components/muscles/MuscleMap';
 
 /** Epley estimated 1RM; unilateral sets count the same load per side. */
 const e1rm = (weight: number, reps: number): number => Math.round(weight * (1 + reps / 30));

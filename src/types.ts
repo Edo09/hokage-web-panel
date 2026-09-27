@@ -291,7 +291,8 @@ export interface ProgramExerciseContext {
   rir_max: number | null;
   load_pct_1rm: number | null;
   custom_name: string | null;
-  exercise: { name: string } | null;
+  /** body_part places the exercise on the muscle map (lib/muscleMap.ts). */
+  exercise: { name: string; body_part?: { name: string } | null } | null;
   program_day: {
     label: string | null;
     program: { id: string; name: string } | null;

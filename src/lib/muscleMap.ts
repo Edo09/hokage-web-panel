@@ -5,7 +5,18 @@
  * Progreso heat map (hokage-coaching-app src/utils/progress.ts), so coach and
  * client read the same six groups.
  */
-import type { ExerciseCompletion, ProgramExercise, ProgramWithDetail, WorkoutSetLog } from '@/types';
+import type {
+  ExerciseCompletion,
+  ExerciseCompletionWithContext,
+  ProgramExercise,
+  ProgramExerciseContext,
+  ProgramWithDetail,
+  RoutineExercise,
+  RoutineWithExercises,
+  SetLogWithContext,
+  WorkoutLog,
+  WorkoutSetLog,
+} from '@/types';
 import type { BodySlug } from '@/components/muscles/bodyArt';
 
 export type MuscleGroup = 'chest' | 'back' | 'shoulders' | 'arms' | 'core' | 'legs' | 'other';
@@ -132,3 +143,102 @@ export function doneSets(
   }
   return out;
 }
+
+const norm = (s: string) => s.trim().toLowerCase();
+
+const dateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * Sets per group over the last `windowDays` days (today included), counted
+ * like the app's Progreso "Volumen" view: every program the client has (a
+ * logged set counts one; an exercise checked done with no logged sets that
+ * week counts its prescribed sets) plus legacy routine logs (each completed
+ * exercise counts its routine sets, else 3). Rows whose prescription was
+ * removed are placed by the name they were logged under.
+ */
+export function volumeSets(
+  {
+    programs,
+    logs,
+    completions,
+    routines,
+    routineLogs,
+  }: {
+    programs: ProgramWithDetail[];
+    logs: SetLogWithContext[];
+    completions: ExerciseCompletionWithContext[];
+    routines: RoutineWithExercises[];
+    routineLogs: WorkoutLog[];
+  },
+  windowDays: number,
+  today = new Date(),
+): GroupSets {
+  const cutoff = dateKey(new Date(today.getFullYear(), today.getMonth(), today.getDate() - (windowDays - 1)));
+
+  // Exercise name → group, from everything the client has been prescribed
+  // (stands in for the app's catalog lookup), and prescription id → program.
+  const nameGroup = new Map<string, MuscleGroup>();
+  const byId = new Map<string, { ex: ProgramExercise; program: ProgramWithDetail }>();
+  for (const program of programs) {
+    for (const day of program.program_days) {
+      for (const ex of day.program_exercises) {
+        byId.set(ex.id, { ex, program });
+        if (ex.exercise) nameGroup.set(norm(ex.exercise.name), groupForBodyPart(ex.exercise.body_part?.name));
+      }
+    }
+  }
+  const routineSets = new Map<string, Map<string, RoutineExercise>>();
+  const anyRoutineSets = new Map<string, RoutineExercise>();
+  for (const routine of routines) {
+    const inner = new Map<string, RoutineExercise>();
+    for (const re of routine.routine_exercises) {
+      if (!re.exercise) continue;
+      const key = norm(re.exercise.name);
+      inner.set(key, re);
+      if (!anyRoutineSets.has(key)) anyRoutineSets.set(key, re);
+      if (!nameGroup.has(key)) nameGroup.set(key, groupForBodyPart(re.exercise.body_part?.name));
+    }
+    routineSets.set(routine.id, inner);
+  }
+
+  const nameOf = (pe: ProgramExerciseContext | null, snapshot: string | null) =>
+    pe?.exercise?.name ?? pe?.custom_name ?? snapshot ?? '';
+  const groupOf = (pe: ProgramExerciseContext | null, snapshot: string | null): MuscleGroup =>
+    pe ? (pe.exercise ? groupForBodyPart(pe.exercise.body_part?.name) : 'other') : (nameGroup.get(norm(snapshot ?? '')) ?? 'other');
+
+  const out: GroupSets = new Map();
+  const logged = new Set<string>();
+  for (const l of logs) {
+    // Every log marks its check-off as covered, even outside the window.
+    if (l.program_exercise_id) logged.add(`pe|${l.program_exercise_id}|${l.week_number}`);
+    logged.add(`day|${l.date.slice(0, 10)}|${norm(nameOf(l.program_exercise, l.exercise_name))}`);
+    if (l.date.slice(0, 10) >= cutoff) add(out, groupOf(l.program_exercise, l.exercise_name), 1);
+  }
+  for (const c of completions) {
+    const date = dateKey(new Date(c.completed_at));
+    if (date < cutoff) continue;
+    const key = c.program_exercise_id
+      ? `pe|${c.program_exercise_id}|${c.week_number}`
+      : `day|${date}|${norm(nameOf(c.program_exercise, c.exercise_name))}`;
+    if (logged.has(key)) continue;
+    const pr = c.program_exercise_id ? byId.get(c.program_exercise_id) : undefined;
+    const sets = pr ? effectiveSets(pr.ex, c.week_number, pr.program) : (c.program_exercise?.sets ?? 3);
+    add(out, groupOf(c.program_exercise, c.exercise_name), sets);
+  }
+  for (const log of routineLogs) {
+    if (log.date.slice(0, 10) < cutoff) continue;
+    for (const name of log.completed_exercises ?? []) {
+      const key = norm(name);
+      const re = (log.routine_id ? routineSets.get(log.routine_id)?.get(key) : undefined) ?? anyRoutineSets.get(key);
+      add(out, nameGroup.get(key) ?? 'other', re?.sets ?? 3);
+    }
+  }
+  return out;
+}
+
+/** A group under a quarter of the busiest one — "poco trabajado". Never
+ *  "other", never an untrained group (that one just reads as zero). Same
+ *  rule as the app's Volumen bars. */
+export const isWeakGroup = (group: MuscleGroup, sets: number, max: number): boolean =>
+  group !== 'other' && sets > 0 && sets < 0.25 * max;

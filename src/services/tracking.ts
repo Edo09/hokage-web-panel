@@ -18,7 +18,7 @@ import type {
 } from '@/types';
 
 const PROGRAM_EXERCISE_CONTEXT =
-  'program_exercise:program_exercises(id, sets, rep_min, rep_max, is_unilateral, rir_min, rir_max, load_pct_1rm, custom_name, exercise:exercises(name), program_day:program_days(label, program:programs(id, name)))';
+  'program_exercise:program_exercises(id, sets, rep_min, rep_max, is_unilateral, rir_min, rir_max, load_pct_1rm, custom_name, exercise:exercises(name, body_part:bodyparts(name)), program_day:program_days(label, program:programs(id, name)))';
 
 /** Live prescription name first; a log detached from a removed prescription
  *  falls back to the name it was stamped with when logged. */

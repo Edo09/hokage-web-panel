@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MuscleMap } from '@/components/muscles/MuscleMap';
 import { ClientPulse } from './ClientPulse';
 
 const TONE_CLASS = {
@@ -187,6 +188,7 @@ export function OverviewTab({
   return (
     <div className="flex flex-col gap-4">
     <ClientPulse client={client} onGoTab={onGoTab} />
+    <MuscleMap client={client} />
     <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
       <Card>
         <CardHeader>
