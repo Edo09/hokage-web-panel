@@ -6,7 +6,8 @@
  * validateProgram and the DB CHECKs enforce, drops exercises that aren't in
  * the catalog, and maps each kept `ref` back to the builder row it came from.
  * A kept row carries its DB id, so saving updates it in place and the
- * client's logged sets stay attached, exactly as a hand edit would.
+ * client's logged sets stay attached, exactly as a hand edit would — but only
+ * while it's still the same exercise: a ref on a swapped movement is ignored.
  */
 import type { LoadQualitative } from '@/types';
 import {
@@ -174,6 +175,11 @@ const str = (n: number | null): string => (n == null ? '' : String(n));
 const ordered = (a: number | null, b: number | null): [string, string] =>
   a != null && b != null && a > b ? [str(b), str(a)] : [str(a), str(b)];
 
+/** Same exercise name, whatever the model did to case, accents or spacing. */
+const movementKey = (s: string) =>
+  s.normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
+const sameMovement = (a: string, b: string) => movementKey(a) === movementKey(b);
+
 const LOAD_QUALS = ['light', 'moderate', 'heavy'];
 const WEEKDAY_VALUES = WEEKDAYS.map((w) => w.value).filter(Boolean);
 
@@ -209,10 +215,11 @@ export function aiToDraft(raw: unknown, before: DayRow[] | null, isKnown: (name:
     d.exercises.forEach((x, xi) => exByRef.set(exRef(di, xi), x));
   });
   const claimed = new Set<string>();
-  const claim = <T,>(map: Map<string, T>, ref: unknown): T | undefined => {
+  const claim = <T,>(map: Map<string, T>, ref: unknown, fits: (hit: T) => boolean = () => true): T | undefined => {
     if (typeof ref !== 'string' || claimed.has(ref)) return undefined;
     const hit = map.get(ref);
-    if (hit) claimed.add(ref);
+    if (!hit || !fits(hit)) return undefined;
+    claimed.add(ref);
     return hit;
   };
 
@@ -227,7 +234,11 @@ export function aiToDraft(raw: unknown, before: DayRow[] | null, isKnown: (name:
         dropped.push(name);
         return [];
       }
-      const orig = claim(exByRef, x.ref);
+      // The row's id only goes with the same movement: a model that swapped
+      // the exercise but kept the ref would otherwise move the client's
+      // logged sets onto a different lift. A swap becomes a new row, and the
+      // old one's sets stay in its history.
+      const orig = claim(exByRef, x.ref, (o) => sameMovement(o.name, name));
       const [repMin, repMax] = ordered(int(x.rep_min, 1, 100), int(x.rep_max, 1, 100));
       const [rirMin, rirMax] = ordered(int(x.rir_min, 0, 10), int(x.rir_max, 0, 10));
       const loadQual = typeof x.load_qualitative === 'string' && LOAD_QUALS.includes(x.load_qualitative) ? x.load_qualitative : '';
