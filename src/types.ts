@@ -177,6 +177,9 @@ export interface Program {
   duration_weeks: number;
   start_date: string; // ISO date
   status: ProgramStatus;
+  /** "Solo semana actual": the client's app only lets them complete the
+   *  current week and past weeks. Templates pass it on when assigned. */
+  lock_future_weeks: boolean;
   progression_rule: string | null;
   tempo_default: string | null;
   notes: string | null;
