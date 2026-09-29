@@ -27,6 +27,7 @@ import { DiscardChangesDialog } from '@/components/program/DiscardChangesDialog'
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { AiProgramDialog } from '@/components/program/AiProgramDialog';
 import { AiResultPanel } from '@/components/program/AiResultPanel';
+import { LockFutureWeeksSwitch } from '@/components/program/LockFutureWeeksSwitch';
 import type { AiResult } from '@/components/program/aiModel';
 import {
   bodyPartLabel,
@@ -105,8 +106,12 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
   const b = useProgramBuilder(props);
   const [activeDay, setActiveDay] = useState(0);
   const [selWeek, setSelWeek] = useState(0);
+  // Open when something in it is set. «Solo semana actual» counts: it changes
+  // what the client can do, so it must not sit behind a closed panel.
   const [detailsOpen, setDetailsOpen] = useState(
-    !!(props.initial?.progression_rule || props.initial?.tempo_default || props.initial?.description || props.initial?.notes),
+    () =>
+      b.lockFutureWeeks ||
+      !!(props.initial?.progression_rule || props.initial?.tempo_default || props.initial?.description || props.initial?.notes),
   );
   const [previewOpen, setPreviewOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -483,6 +488,15 @@ function WorkspaceHeader({
           <Field id="pw-desc" label="Descripción">
             <Input id="pw-desc" placeholder="Resumen breve del bloque…" value={b.description} onChange={(e) => b.setDescription(e.target.value)} />
           </Field>
+          {/* A full row right under Inicio · Estado · Descripción (under
+              Descripción alone for a template). Templates carry it too: the
+              assign dialogs pre-set it from the template. */}
+          <LockFutureWeeksSwitch
+            id="pw-lock"
+            className="rounded-none bg-field md:col-span-2 xl:col-span-3"
+            checked={b.lockFutureWeeks}
+            onCheckedChange={b.setLockFutureWeeks}
+          />
           <Field id="pw-notes" label="Notas del programa" className="md:col-span-2 xl:col-span-3">
             <Textarea id="pw-notes" rows={2} placeholder="Ej. Cardio 20 min post-entreno" value={b.notes} onChange={(e) => b.setNotes(e.target.value)} />
           </Field>

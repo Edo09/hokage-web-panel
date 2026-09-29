@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { DiscardChangesDialog } from '@/components/program/DiscardChangesDialog';
+import { LockFutureWeeksSwitch } from '@/components/program/LockFutureWeeksSwitch';
 import {
   advSummary,
   emptyDay,
@@ -204,6 +205,8 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
     setTempoDefault,
     notes,
     setNotes,
+    lockFutureWeeks,
+    setLockFutureWeeks,
     days,
     setDays,
     weeks,
@@ -369,6 +372,9 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
                 </>
               )}
             </div>
+            {/* Shown for templates too: the assign dialogs pre-set it from the
+                template. */}
+            <LockFutureWeeksSwitch id="pb-lock" checked={lockFutureWeeks} onCheckedChange={setLockFutureWeeks} />
             <div>
               <Disclosure
                 open={headerAdv}
@@ -726,6 +732,7 @@ export function LegacyProgramBuilder(props: ProgramBuilderProps) {
               {focus.trim() && <div className="mt-0.5 text-[12.5px] text-muted-foreground">{focus}</div>}
               <div className="mt-1 text-[12px] text-faint">
                 {weeksN} {weeksN === 1 ? 'semana' : 'semanas'} · inicio {fmtDate(startDate)}
+                {lockFutureWeeks && ' · solo semana actual'}
               </div>
               {progressionRule.trim() && (
                 <p className="mt-2 text-[12px] text-faint">

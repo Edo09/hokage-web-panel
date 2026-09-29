@@ -200,6 +200,9 @@ export interface DraftData {
   progressionRule: string;
   tempoDefault: string;
   notes: string;
+  /** «Solo semana actual». Drafts saved before it existed don't carry it;
+   *  useProgramBuilder fills it in when it restores one. */
+  lockFutureWeeks: boolean;
   days: DayRow[];
   weeks: WeekRow[];
 }
@@ -396,6 +399,7 @@ export interface HeaderFields {
   progressionRule: string;
   tempoDefault: string;
   notes: string;
+  lockFutureWeeks: boolean;
 }
 
 /** Builds the save_coach_program payload from the builder rows. Blank rows are
@@ -455,6 +459,7 @@ export function buildPayload(
     progression_rule: header.progressionRule.trim() || null,
     tempo_default: header.tempoDefault.trim() || null,
     notes: header.notes.trim() || null,
+    lock_future_weeks: header.lockFutureWeeks,
     days: outDays,
     weeks: weeks.map((w, wi) => ({
       week_number: wi + 1,

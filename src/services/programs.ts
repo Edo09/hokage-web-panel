@@ -182,6 +182,8 @@ export interface SaveProgramInput {
   progression_rule: string | null;
   tempo_default: string | null;
   notes: string | null;
+  /** «Solo semana actual» (programs.lock_future_weeks). */
+  lock_future_weeks: boolean;
   days: ProgramDayInput[];
   weeks: ProgramWeekInput[];
 }
@@ -209,6 +211,7 @@ async function saveCoachProgram(
       progression_rule: input.progression_rule,
       tempo_default: input.tempo_default,
       notes: input.notes,
+      lock_future_weeks: input.lock_future_weeks,
     },
     p_days: input.days,
     p_weeks: input.weeks,

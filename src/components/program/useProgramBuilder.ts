@@ -34,6 +34,7 @@ function baselineDraft(initial: ProgramWithDetail | undefined): DraftData {
     progressionRule: initial?.progression_rule ?? '',
     tempoDefault: initial?.tempo_default ?? '',
     notes: initial?.notes ?? '',
+    lockFutureWeeks: initial?.lock_future_weeks ?? false,
     days: initial ? daysFrom(initial) : [emptyDay()],
     weeks: initial ? weeksFrom(initial) : resizeWeeks([], 4),
   };
@@ -76,11 +77,16 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
   // of empty fields and no effect-driven overwrite.
   const [restored] = useState(() => {
     const r = loadDraft<DraftData>(storageKey);
-    if (r && draftSignature(r.data) === pristine) {
+    if (!r) return null;
+    // A draft saved before a field existed (lockFutureWeeks) takes the form's
+    // opening value for it. Spreading over the baseline also keeps the keys in
+    // baselineDraft's order, which draftSignature compares.
+    const data: DraftData = { ...baselineDraft(initial), ...r.data };
+    if (draftSignature(data) === pristine) {
       clearDraft(storageKey); // an untouched form saved by an older version
       return null;
     }
-    return r;
+    return { ...r, data };
   });
   const d = restored?.data;
   const [draftDismissed, setDraftDismissed] = useState(false);
@@ -95,6 +101,7 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
   const [progressionRule, setProgressionRule] = useState(d?.progressionRule ?? initial?.progression_rule ?? '');
   const [tempoDefault, setTempoDefault] = useState(d?.tempoDefault ?? initial?.tempo_default ?? '');
   const [notes, setNotes] = useState(d?.notes ?? initial?.notes ?? '');
+  const [lockFutureWeeks, setLockFutureWeeks] = useState(d?.lockFutureWeeks ?? initial?.lock_future_weeks ?? false);
   const [days, setDays] = useState<DayRow[]>(d?.days ?? (initial ? daysFrom(initial) : [emptyDay()]));
   const [weeks, setWeeks] = useState<WeekRow[]>(d?.weeks ?? (initial ? weeksFrom(initial) : resizeWeeks([], 4)));
   const [saving, setSaving] = useState(false);
@@ -127,6 +134,7 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
         progressionRule,
         tempoDefault,
         notes,
+        lockFutureWeeks,
         days,
         weeks,
       };
@@ -139,7 +147,7 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
       }
     }, 600);
     return () => clearTimeout(t);
-  }, [storageKey, pristine, name, focus, description, durationWeeks, startDate, status, progressionRule, tempoDefault, notes, days, weeks]);
+  }, [storageKey, pristine, name, focus, description, durationWeeks, startDate, status, progressionRule, tempoDefault, notes, lockFutureWeeks, days, weeks]);
 
   const byName = useMemo(() => {
     const m = new Map<string, Exercise>();
@@ -174,6 +182,7 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     progressionRule,
     tempoDefault,
     notes,
+    lockFutureWeeks,
   };
 
   /** The whole draft as it stands — what the AI assistant edits, and what
@@ -191,6 +200,7 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     setProgressionRule(next.progressionRule);
     setTempoDefault(next.tempoDefault);
     setNotes(next.notes);
+    setLockFutureWeeks(next.lockFutureWeeks);
     setDays(next.days);
     setWeeks(resizeWeeks(next.weeks, clamp(parseInt(next.durationWeeks, 10) || 1, 1, 52)));
   };
@@ -314,6 +324,8 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     setTempoDefault,
     notes,
     setNotes,
+    lockFutureWeeks,
+    setLockFutureWeeks,
     days,
     setDays,
     weeks,
