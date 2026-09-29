@@ -9,6 +9,7 @@ import {
   Copy,
   Dumbbell,
   FileDown,
+  Lock,
   Pencil,
   Plus,
   Smartphone,
@@ -28,6 +29,7 @@ import { listClientSummaries } from '@/services/clients';
 import { exportProgramPdf } from '@/lib/programPdf';
 import { ProgramBuilder } from '@/components/program/ProgramBuilder';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
+import { LockFutureWeeksSwitch } from '@/components/program/LockFutureWeeksSwitch';
 import { programToPreview } from '@/components/program/previewModel';
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
 import { errorMessage } from '@/lib/dbError';
@@ -445,6 +447,7 @@ function TemplateCard({
                 active > 0 ? ` · ${active} activo${active === 1 ? '' : 's'}` : ''
               }`}
         </Chip>
+        {template.lock_future_weeks && <Chip icon={Lock}>Solo semana actual</Chip>}
       </div>
 
       {template.progression_rule && (
@@ -517,6 +520,15 @@ function AssignDialog({
   const [startDate, setStartDate] = useState(tomorrowISO());
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
+  // «Solo semana actual» for this copy: pre-set from the template each time
+  // the dialog opens for one, and back to off when it closes, so a toggle from
+  // a cancelled assign doesn't carry over.
+  const [lockFutureWeeks, setLockFutureWeeks] = useState(false);
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if ((template?.id ?? null) !== seededFor) {
+    setSeededFor(template?.id ?? null);
+    setLockFutureWeeks(template?.lock_future_weeks ?? false);
+  }
 
   const filtered = useMemo(() => {
     const list = clients ?? [];
@@ -529,7 +541,7 @@ function AssignDialog({
     if (template == null || clientId == null) return;
     setSaving(true);
     try {
-      await assignTemplate(template.id, clientId, startDate);
+      await assignTemplate(template.id, clientId, startDate, lockFutureWeeks);
       const name = clients?.find((c) => c.id === clientId);
       toast.success(`"${template.name}" asignado a ${name?.display_name ?? name?.email ?? 'el cliente'}`);
       setClientId(null);
@@ -566,6 +578,8 @@ function AssignDialog({
               onChange={(e) => setStartDate(e.target.value)}
             />
           </div>
+
+          <LockFutureWeeksSwitch id="as-lock" checked={lockFutureWeeks} onCheckedChange={setLockFutureWeeks} />
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="as-search">Cliente</Label>

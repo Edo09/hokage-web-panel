@@ -9,6 +9,7 @@ import {
   Dumbbell,
   FileDown,
   LibraryBig,
+  Lock,
   Pencil,
   Play,
   Plus,
@@ -37,6 +38,7 @@ import {
 import { exportProgramPdf } from '@/lib/programPdf';
 import { ProgramBuilder } from '@/components/program/ProgramBuilder';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
+import { LockFutureWeeksSwitch } from '@/components/program/LockFutureWeeksSwitch';
 import { programToPreview } from '@/components/program/previewModel';
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
 import { draftKey, hasDraft } from '@/lib/programDraft';
@@ -279,6 +281,7 @@ export function ProgramsTab({ client }: { client: ClientWithMeta }) {
                   <Chip icon={Dumbbell}>{p.program_days.length} días</Chip>
                   <Chip icon={Copy}>{exCount} ejercicios</Chip>
                   <Chip>Inicio {fmtDate(p.start_date)}</Chip>
+                  {p.lock_future_weeks && <Chip icon={Lock}>Solo semana actual</Chip>}
                 </div>
 
                 {p.progression_rule && (
@@ -490,14 +493,35 @@ function TemplatePicker({
   const templates = allTemplates?.filter((t) => t.status === 'active');
   const [picked, setPicked] = useState<string | null>(null);
   const [startDate, setStartDate] = useState(tomorrowISO());
+  // «Solo semana actual» for this copy: pre-set from the picked template, and
+  // reset whenever the coach picks a different one.
+  const [lockFutureWeeks, setLockFutureWeeks] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // The picker stays mounted while closed, so a cancelled pick (and its
+  // switch) would still be there next time. Each opening starts fresh.
+  const [seenOpen, setSeenOpen] = useState(open);
+  if (open !== seenOpen) {
+    setSeenOpen(open);
+    if (open) {
+      setPicked(null);
+      setStartDate(tomorrowISO());
+      setLockFutureWeeks(false);
+    }
+  }
+
+  const pick = (tpl: ProgramWithDetail) => {
+    if (tpl.id === picked) return;
+    setPicked(tpl.id);
+    setLockFutureWeeks(tpl.lock_future_weeks);
+  };
 
   const submit = async () => {
     if (picked == null) return;
     setSaving(true);
     try {
       const tpl = templates?.find((t) => t.id === picked);
-      await assignTemplate(picked, clientId, startDate);
+      await assignTemplate(picked, clientId, startDate, lockFutureWeeks);
       toast.success(`"${tpl?.name ?? 'Programa'}" asignado`);
       setPicked(null);
       onAssigned();
@@ -533,6 +557,13 @@ function TemplatePicker({
             />
           </div>
 
+          <LockFutureWeeksSwitch
+            id="tp-lock"
+            checked={lockFutureWeeks}
+            onCheckedChange={setLockFutureWeeks}
+            disabled={picked == null}
+          />
+
           <div className="max-h-[300px] overflow-y-auto rounded-lg border border-border">
             {templates == null ? (
               <div className="p-4 text-center text-[12.5px] text-faint">Cargando plantillas…</div>
@@ -548,7 +579,7 @@ function TemplatePicker({
                   <button
                     key={tpl.id}
                     type="button"
-                    onClick={() => setPicked(tpl.id)}
+                    onClick={() => pick(tpl)}
                     className={cn(
                       'flex w-full flex-col items-start gap-0.5 border-b border-border px-3 py-2.5 text-left last:border-b-0 transition-colors',
                       selected ? 'bg-primary/10 dark:bg-primary/15' : 'hover:bg-muted',

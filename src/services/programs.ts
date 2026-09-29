@@ -110,16 +110,19 @@ export async function saveProgramAsTemplate(
 
 /** Deep-copies a template into a new ACTIVE program for the client (the
  *  single-active trigger archives whatever they were on). The copy is a
- *  snapshot — later template edits don't touch it. */
+ *  snapshot — later template edits don't touch it. `lockFutureWeeks` sets
+ *  «Solo semana actual» on the copy; null keeps the template's own value. */
 export async function assignTemplate(
   templateId: string,
   clientId: string,
   startDate: string,
+  lockFutureWeeks: boolean | null = null,
 ): Promise<string> {
   const { data, error } = await supabase.rpc('assign_program_template', {
     p_template_id: templateId,
     p_client_id: clientId,
     p_start_date: startDate,
+    p_lock_future_weeks: lockFutureWeeks,
   });
   if (error) throw error;
   return data as string;
