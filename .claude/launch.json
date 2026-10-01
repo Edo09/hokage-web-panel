@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5181", "--strictPort"],
       "port": 5181
+    },
+    {
+      "name": "app-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../hokage-coaching-app", "run", "web", "--", "--port", "8081"],
+      "port": 8081
     }
   ]
 }
