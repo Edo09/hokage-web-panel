@@ -40,17 +40,18 @@ The service-role key is provided to functions automatically. Until the functions
 
 Both functions return a **one-time temporary password** that the panel shows once (copy button) for the coach to share with the client over WhatsApp. The client signs in with it and changes it in the app's **Ajustes → Cambiar contraseña**. No email delivery is involved anywhere in this flow; a client who forgot their password asks the coach, who uses **Restablecer contraseña** on the client's page.
 
-## Deploy the AI program assistant
+## Deploy the AI assistants
 
-The builder's **Generar / Editar con IA** button calls a third Edge Function, `generate-program` (same repo), which holds the Gemini/Groq keys server-side. It only drafts: the result lands in the builder and nothing is saved until the coach saves. From the mobile app repo:
+The program builder's **Generar / Editar con IA** button calls a third Edge Function, `generate-program` (same repo), and the nutrition builder's has its twin, `generate-nutrition-plan`. Both hold the Gemini/Groq keys server-side and only draft: the result lands in the builder and nothing is saved until the coach saves. From the mobile app repo (or let its GitHub Action deploy them on push):
 
 ```bash
-supabase functions deploy generate-program --project-ref rzgwkwxskrovxnnymxqo
+supabase functions deploy generate-program        --project-ref rzgwkwxskrovxnnymxqo
+supabase functions deploy generate-nutrition-plan --project-ref rzgwkwxskrovxnnymxqo
 # Either key alone works; with both, Groq is only the fallback.
 supabase secrets set GEMINI_API_KEY=<key> GROQ_API_KEY=<key> --project-ref rzgwkwxskrovxnnymxqo
 ```
 
-It uses the same `ALLOWED_ORIGINS` secret as the account functions. Details: `docs/ADMIN_WEB_DB_CONNECTION.md` §6.3 in the mobile app repo.
+They use the same `ALLOWED_ORIGINS` secret as the account functions. Details: `docs/ADMIN_WEB_DB_CONNECTION.md` §6.3 and §6.5 in the mobile app repo.
 
 ## What's inside
 
@@ -59,7 +60,7 @@ It uses the same `ALLOWED_ORIGINS` secret as the account functions. Details: `do
 - **Clientes** (`/clients`) — searchable table, add-client modal (`create-client`).
 - **Cliente** (`/clients/:id?tab=…`) — header (with **Restablecer contraseña**) + tabs: Resumen, Programas (assign/build multi-week programs), Seguimiento (logged sets + completions), Nutrición (nutrition + supplement plans, calorie goal, logged meals with photos), Progreso, Membresía.
 - **Programas** (`/programs`) — program template library: builder with live mobile preview and an AI assistant that drafts or edits a program from a prompt (`generate-program`), assign, PDF export, archive.
-- **Nutrición** (`/nutrition`) — nutrition and supplement plan templates, same pattern as Programas.
+- **Nutrición** (`/nutrition`) — nutrition and supplement plan templates, same pattern as Programas; the nutrition builder has the same AI assistant, drafting or editing a plan from a prompt (`generate-nutrition-plan`).
 - **Ejercicios** (`/exercises`) — exercise catalog CRUD (name, body part, demo video).
 - **Membresías** (`/memberships`) — urgency-sorted table, renew / pause / resume.
 - **Ajustes** (`/settings`) — coach display name + WhatsApp with a live mobile-app preview.

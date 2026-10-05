@@ -1,13 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Check, ChevronDown, ChevronRight, Plus, Smartphone, Trash2, X } from 'lucide-react';
-import type {
-  ClientWithMeta,
-  DayType,
-  NutritionPlanWithDetail,
-  PlanMealType,
-  PlanStatus,
-} from '@/types';
+import { Check, ChevronDown, ChevronRight, Plus, Smartphone, Sparkles, Trash2, X } from 'lucide-react';
+import type { ClientWithMeta, DayType, NutritionPlanWithDetail, PlanMealType, PlanStatus } from '@/types';
 import {
   createNutritionPlan,
   createNutritionTemplate,
@@ -28,199 +22,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { MobileNutritionPreview } from '@/components/nutrition/MobileNutritionPreview';
 import { draftToPreview } from '@/components/nutrition/previewModel';
-
-const MEAL_TYPES: { value: PlanMealType; label: string }[] = [
-  { value: 'breakfast', label: 'Desayuno' },
-  { value: 'lunch', label: 'Almuerzo' },
-  { value: 'dinner', label: 'Cena' },
-  { value: 'snack', label: 'Merienda' },
-  { value: 'pre_workout', label: 'Pre-entrenamiento' },
-  { value: 'post_workout', label: 'Post-entrenamiento' },
-];
-const mealTypeLabel = (v: PlanMealType): string =>
-  MEAL_TYPES.find((m) => m.value === v)?.label ?? v;
-
-/** Whole-slot gating: "POST-ENTRENAMIENTO (SOLO DÍAS DE ENTRENAMIENTO)". */
-const APPLIES_TO: { value: DayType; label: string }[] = [
-  { value: 'both', label: 'Ambos días' },
-  { value: 'training', label: 'Solo entrenamiento' },
-  { value: 'rest', label: 'Solo descanso' },
-];
-
-/** Per-food gating — the carb cycling itself. Short labels: this sits inline. */
-const FOOD_DAYS: { value: DayType; label: string }[] = [
-  { value: 'both', label: 'Ambos' },
-  { value: 'training', label: 'Entreno' },
-  { value: 'rest', label: 'Descanso' },
-];
-
-const STATUSES: { value: PlanStatus; label: string }[] = [
-  { value: 'active', label: 'Activo' },
-  { value: 'completed', label: 'Completado' },
-  { value: 'archived', label: 'Archivado' },
-];
+import { AiNutritionDialog } from '@/components/nutrition/AiNutritionDialog';
+import { AiNutritionResultPanel } from '@/components/nutrition/AiNutritionResultPanel';
+import type { AiNutritionResult, NutritionAiHost } from '@/components/nutrition/aiModel';
+import {
+  advSummary,
+  APPLIES_TO,
+  draftSignature,
+  emptyFood,
+  emptyMeal,
+  emptyOption,
+  emptyTargets,
+  FOOD_DAYS,
+  foodCount as countFoods,
+  MEAL_TYPES,
+  mealsFrom,
+  mealTypeLabel,
+  rangeText,
+  STATUSES,
+  targetHasData,
+  targetsFrom,
+  todayISO,
+  toInt,
+  toNum,
+  type FoodRow,
+  type MealRow,
+  type NutritionDraft,
+  type OptionRow,
+  type TargetRow,
+} from '@/components/nutrition/builderModel';
 
 const WIZARD_STEPS = ['Datos', 'Comidas y opciones', 'Objetivos', 'Revisar'] as const;
-
-const toInt = (s: string): number | null => {
-  const t = s.trim();
-  if (!t) return null;
-  const v = parseInt(t, 10);
-  return Number.isFinite(v) ? v : null;
-};
-const toNum = (s: string): number | null => {
-  const t = s.trim();
-  if (!t) return null;
-  const v = Number(t);
-  return Number.isFinite(v) ? v : null;
-};
-const todayISO = (): string => {
-  const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-};
-const rangeText = (min: string, max: string): string => {
-  const a = min.trim();
-  const b = max.trim();
-  if (a && b) return a === b ? a : `${a}–${b}`;
-  return a || b || '—';
-};
-
-/* ---- builder row models (all strings; parsed at submit) ---- */
-interface FoodRow {
-  name: string;
-  dayType: DayType;
-}
-interface OptionRow {
-  /** DB id of an option loaded from an existing plan — sent back on save so
-   *  the RPC updates it in place and diary entries registered from it stay
-   *  linked. Absent on options added in the builder. */
-  id?: string;
-  label: string;
-  notes: string;
-  foods: FoodRow[];
-}
-interface MealRow {
-  /** DB id when loaded from an existing plan (see OptionRow.id). */
-  id?: string;
-  label: string;
-  mealType: PlanMealType;
-  timeHint: string;
-  appliesTo: DayType;
-  isOptional: boolean;
-  notes: string;
-  options: OptionRow[];
-  /** UI-only: whether the slot's advanced disclosure is expanded. Not sent. */
-  advOpen: boolean;
-}
-interface TargetRow {
-  kcalMin: string;
-  kcalMax: string;
-  proteinMin: string;
-  proteinMax: string;
-  carbsMin: string;
-  carbsMax: string;
-  fatMin: string;
-  fatMax: string;
-}
-
-const emptyFood = (): FoodRow => ({ name: '', dayType: 'both' });
-const emptyOption = (n: number): OptionRow => ({
-  label: `Opción ${n}`,
-  notes: '',
-  foods: [emptyFood()],
-});
-const emptyMeal = (): MealRow => ({
-  label: '',
-  mealType: 'breakfast',
-  timeHint: '',
-  appliesTo: 'both',
-  isOptional: false,
-  notes: '',
-  options: [emptyOption(1)],
-  advOpen: false,
-});
-const emptyTarget = (): TargetRow => ({
-  kcalMin: '',
-  kcalMax: '',
-  proteinMin: '',
-  proteinMax: '',
-  carbsMin: '',
-  carbsMax: '',
-  fatMin: '',
-  fatMax: '',
-});
-const emptyTargets = (): Record<DayType, TargetRow> => ({
-  both: emptyTarget(),
-  training: emptyTarget(),
-  rest: emptyTarget(),
-});
-
-const targetHasData = (t: TargetRow): boolean =>
-  Object.values(t).some((v) => v.trim() !== '');
-
-/** What's set behind a collapsed "Avanzado" — shown next to the toggle so
- *  configured values are never invisible. */
-const advSummary = (m: MealRow): string => {
-  const parts: string[] = [];
-  if (m.appliesTo !== 'both') {
-    parts.push(APPLIES_TO.find((a) => a.value === m.appliesTo)?.label.toLowerCase() ?? '');
-  }
-  if (m.isOptional) parts.push('opcional');
-  if (m.timeHint.trim()) parts.push(m.timeHint.trim());
-  if (m.notes.trim()) parts.push('con nota');
-  return parts.filter(Boolean).join(' · ');
-};
-
-/* ---- edit prefill ---- */
-const mealsFrom = (p: NutritionPlanWithDetail): MealRow[] =>
-  p.nutrition_plan_meals.length === 0
-    ? [emptyMeal()]
-    : [...p.nutrition_plan_meals]
-        .sort((a, b) => a.sort_order - b.sort_order || a.slot_index - b.slot_index)
-        .map((m) => ({
-          id: m.id,
-          label: m.label ?? '',
-          mealType: m.meal_type,
-          timeHint: m.time_hint ?? '',
-          appliesTo: m.applies_to,
-          isOptional: m.is_optional,
-          notes: m.notes ?? '',
-          advOpen: m.applies_to !== 'both' || m.is_optional || !!m.time_hint || !!m.notes,
-          options:
-            m.nutrition_plan_options.length === 0
-              ? [emptyOption(1)]
-              : [...m.nutrition_plan_options]
-                  .sort((a, b) => a.sort_order - b.sort_order)
-                  .map((o) => ({
-                    id: o.id,
-                    label: o.label ?? '',
-                    notes: o.notes ?? '',
-                    foods:
-                      o.nutrition_plan_option_items.length === 0
-                        ? [emptyFood()]
-                        : [...o.nutrition_plan_option_items]
-                            .sort((a, b) => a.sort_order - b.sort_order)
-                            .map((i) => ({ name: i.name, dayType: i.day_type })),
-                  })),
-        }));
-
-const targetsFrom = (p: NutritionPlanWithDetail): Record<DayType, TargetRow> => {
-  const out = emptyTargets();
-  for (const t of p.nutrition_plan_targets) {
-    out[t.day_type] = {
-      kcalMin: t.kcal_min != null ? String(t.kcal_min) : '',
-      kcalMax: t.kcal_max != null ? String(t.kcal_max) : '',
-      proteinMin: t.protein_min_g != null ? String(t.protein_min_g) : '',
-      proteinMax: t.protein_max_g != null ? String(t.protein_max_g) : '',
-      carbsMin: t.carbs_min_g != null ? String(t.carbs_min_g) : '',
-      carbsMax: t.carbs_max_g != null ? String(t.carbs_max_g) : '',
-      fatMin: t.fat_min_g != null ? String(t.fat_min_g) : '',
-      fatMax: t.fat_max_g != null ? String(t.fat_max_g) : '',
-    };
-  }
-  return out;
-};
 
 const NUM_SM = 'h-8 w-[62px] rounded-md border border-border bg-card px-1 text-center text-[12.5px]';
 
@@ -414,8 +246,47 @@ export function NutritionPlanBuilder({
   );
   const [step, setStep] = useState(initial ? WIZARD_STEPS.length - 1 : 0);
   const [maxStep, setMaxStep] = useState(initial ? WIZARD_STEPS.length - 1 : 0);
+  const [aiOpen, setAiOpen] = useState(false);
+  /** The last AI answer applied, shown in the review panel until closed. */
+  const [aiResult, setAiResult] = useState<AiNutritionResult | null>(null);
+  /** Remounts the panel per result, so each one opens expanded and focused. */
+  const [aiResultSeq, setAiResultSeq] = useState(0);
+  /** The step the coach was on when they asked the AI — where "Deshacer" returns. */
+  const aiStepBefore = useRef(0);
 
-  const firstName = client?.display_name?.split(' ')[0] ?? 'el cliente';
+  // 'este cliente' reads right everywhere it's interpolated ("de este cliente").
+  const firstName = client?.display_name?.split(' ')[0] ?? 'este cliente';
+
+  /** The whole form as it stands — what the AI assistant edits, and what
+   *  its "Deshacer" puts back. */
+  const snapshot = (): NutritionDraft => ({
+    name,
+    focus,
+    description,
+    durationWeeks,
+    startDate,
+    status,
+    dayCycling,
+    notes,
+    meals,
+    targets,
+  });
+
+  /** Replace the whole form at once (an AI result, or undoing one). */
+  const replaceDraft = (next: NutritionDraft) => {
+    setName(next.name);
+    setFocus(next.focus);
+    setDescription(next.description);
+    setDurationWeeks(next.durationWeeks);
+    setStartDate(next.startDate);
+    setStatus(next.status);
+    setDayCycling(next.dayCycling);
+    setNotes(next.notes);
+    setMeals(next.meals);
+    setTargets(next.targets);
+    // Values behind "Más detalles" must not land out of sight.
+    if (next.description.trim() || next.notes.trim() || next.durationWeeks.trim()) setHeaderAdv(true);
+  };
 
   /* ---- immutable patch helpers, one per nesting level ---- */
   const updMeal = (mi: number, patch: Partial<MealRow>) =>
@@ -561,10 +432,16 @@ export function NutritionPlanBuilder({
     }
   };
 
-  const foodCount = meals.reduce(
-    (a, m) => a + m.options.reduce((b, o) => b + o.foods.filter((f) => f.name.trim()).length, 0),
-    0,
-  );
+  const foodCount = countFoods(meals);
+  const aiHost: NutritionAiHost = {
+    isTemplate,
+    hasInitial: !!initial,
+    clientId: client?.id ?? null,
+    firstName,
+    hasContent: foodCount > 0,
+    snapshot,
+    replaceDraft,
+  };
   const summaryText = `${meals.length} ${meals.length === 1 ? 'comida' : 'comidas'} · ${foodCount} ${
     foodCount === 1 ? 'alimento' : 'alimentos'
   }${dayCycling ? ' · con ciclado' : ''}`;
@@ -594,7 +471,15 @@ export function NutritionPlanBuilder({
               {isTemplate ? '· reutilizable' : `· para ${firstName}`}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAiOpen(true)}
+              className="border-primary/60 text-primary hover:bg-primary/10"
+            >
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} /> {foodCount > 0 ? 'Editar con IA' : 'Generar con IA'}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
               <Smartphone className="h-3.5 w-3.5" strokeWidth={2} /> Vista previa
             </Button>
@@ -605,6 +490,24 @@ export function NutritionPlanBuilder({
         </div>
         <Stepper step={step} maxStep={maxStep} onStep={goTo} />
       </div>
+
+      {aiResult && (
+        <div className="px-[22px] pt-[22px]">
+          <AiNutritionResultPanel
+            key={aiResultSeq}
+            result={aiResult}
+            editedSince={() => draftSignature(snapshot()) !== draftSignature(aiResult.after)}
+            showMeals={step !== WIZARD_STEPS.length - 1}
+            onUndo={() => {
+              replaceDraft(aiResult.before);
+              setAiResult(null);
+              goTo(aiStepBefore.current);
+            }}
+            onRefine={() => setAiOpen(true)}
+            onDismiss={() => setAiResult(null)}
+          />
+        </div>
+      )}
 
       <div className="p-[22px]">
         {/* Step 1 · Datos */}
@@ -1099,6 +1002,19 @@ export function NutritionPlanBuilder({
           )}
         </div>
       </div>
+
+      <AiNutritionDialog
+        host={aiHost}
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        onApplied={(r) => {
+          aiStepBefore.current = step;
+          setAiResult(r);
+          setAiResultSeq((n) => n + 1);
+          // The whole plan at once, with the panel above it.
+          goTo(WIZARD_STEPS.length - 1);
+        }}
+      />
 
       {/* Live preview of the unsaved draft */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>

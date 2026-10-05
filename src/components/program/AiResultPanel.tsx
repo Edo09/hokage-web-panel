@@ -299,6 +299,7 @@ function ChangeList({ changes }: { changes: NonNullable<ReturnType<typeof diffDr
     })),
   ];
   const shown = items.slice(0, MAX_CHANGES);
+  const rest = items.length - shown.length;
   const icon = {
     note: <RefreshCw className="h-3.5 w-3.5 text-secondary" strokeWidth={2.25} />,
     changed: <RefreshCw className="h-3.5 w-3.5 text-secondary" strokeWidth={2.25} />,
@@ -315,8 +316,10 @@ function ChangeList({ changes }: { changes: NonNullable<ReturnType<typeof diffDr
           {it.body}
         </li>
       ))}
-      {items.length > shown.length && (
-        <li className="pl-[22px] text-[12.5px] text-faint">y {items.length - shown.length} cambios más</li>
+      {rest > 0 && (
+        <li className="pl-[22px] text-[12.5px] text-faint">
+          y {rest} {rest === 1 ? 'cambio más' : 'cambios más'}
+        </li>
       )}
     </ul>
   );

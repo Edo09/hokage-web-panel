@@ -108,7 +108,8 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
   /** When the autosave last wrote (for the "guardado" indicator). */
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(restored?.savedAt ?? null);
 
-  const firstName = client?.display_name?.split(' ')[0] ?? 'el cliente';
+  // 'este cliente' reads right everywhere it's interpolated ("de este cliente").
+  const firstName = client?.display_name?.split(' ')[0] ?? 'este cliente';
 
   useEffect(() => {
     void listExercises()
