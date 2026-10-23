@@ -59,6 +59,9 @@ export interface Exercise {
   name: string;
   video_url: string | null;
   body_part_id: string | null;
+  /** Main muscle trained, in ExerciseDB naming ('biceps', 'glutes', 'lats'…);
+   *  finer than body_part. See lib/exerciseCategories. */
+  target_muscle: string | null;
   // Step-by-step "how to" (jsonb arrays of strings), en + es.
   instructions_en: string[] | null;
   instructions_es: string[] | null;

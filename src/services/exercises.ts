@@ -17,19 +17,30 @@ export async function listBodyParts(): Promise<BodyPart[]> {
   return (data ?? []) as BodyPart[];
 }
 
+/** PostgREST returns at most 1000 rows per request (the project's max_rows)
+ *  and the catalog is past that, so read it in pages. */
+const PAGE = 1000;
+
 export async function listExercises(): Promise<Exercise[]> {
-  const { data, error } = await supabase
-    .from('exercises')
-    .select('*, body_part:bodyparts(name)')
-    .order('name', { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as unknown as Exercise[];
+  const all: Exercise[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('exercises')
+      .select('*, body_part:bodyparts(name)')
+      .order('name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    all.push(...((data ?? []) as unknown as Exercise[]));
+    if (!data || data.length < PAGE) return all;
+  }
 }
 
 export interface ExerciseUpdate {
   name?: string;
   video_url?: string | null;
   body_part_id?: string | null;
+  target_muscle?: string | null;
   instructions_en?: string[] | null;
   instructions_es?: string[] | null;
 }
@@ -49,6 +60,7 @@ export async function createExercise(input: ExerciseUpdate & { name: string }): 
       name: input.name,
       video_url: input.video_url ?? null,
       body_part_id: input.body_part_id ?? null,
+      target_muscle: input.target_muscle ?? null,
       instructions_en: input.instructions_en ?? null,
       instructions_es: input.instructions_es ?? null,
     })
