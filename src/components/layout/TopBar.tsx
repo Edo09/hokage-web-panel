@@ -3,6 +3,7 @@ import { LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCoach } from '@/hooks/useCoach';
 import { cn } from '@/lib/utils';
+import { NotificationBell } from './NotificationBell';
 
 export function TopBar({ title }: { title: string }) {
   const { signOut } = useAuth();
@@ -36,6 +37,7 @@ export function TopBar({ title }: { title: string }) {
         </div>
       </div>
       <div className="relative flex flex-none items-center gap-3">
+        <NotificationBell />
         <div className="flex items-center gap-2.5">
           <span
             aria-hidden="true"

@@ -558,3 +558,34 @@ export interface ClientSummary extends Client {
   /** Recent workout logs, date-DESC, projected to the fields the lists render. */
   logs: { date: string; routine_name: string }[];
 }
+
+/* ---------------- Coach notices (the bell) ----------------
+ * Mirrors supabase/migrations/20261024130000_coach_notifications.sql in the
+ * mobile app repo. The database writes them; the panel reads them, marks them
+ * read and words them (lib/notices.ts) from `kind` + `data`. */
+export type CoachNotificationKind = 'day_completed' | 'inactive' | 'block_ending' | 'block_ended';
+
+interface CoachNotificationBase {
+  id: string;
+  client_id: string;
+  /** null = unread. */
+  read_at: string | null;
+  created_at: string;
+  /** Embedded `profiles` row. */
+  client: { display_name: string | null; email: string } | null;
+}
+
+export type CoachNotification = CoachNotificationBase &
+  (
+    | {
+        kind: 'day_completed';
+        data: { program_id: string; program_name: string; program_day_id: string; day_label: string; week: number; exercises: number };
+      }
+    | {
+        kind: 'inactive';
+        /** last_trained null = nothing logged since the block started. */
+        data: { days: number; last_trained: string | null; program_id: string; program_name: string };
+      }
+    | { kind: 'block_ending'; data: { program_id: string; program_name: string; duration_weeks: number; end_date: string } }
+    | { kind: 'block_ended'; data: { program_id: string; program_name: string; end_date: string } }
+  );
