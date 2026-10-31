@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { RequireAuth } from '@/hooks/useAuth';
 import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import Clients from '@/pages/Clients';
@@ -14,7 +15,7 @@ import Settings from '@/pages/Settings';
 
 export default function App() {
   return (
-    <>
+    <TooltipProvider delayDuration={300}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -36,6 +37,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />
-    </>
+    </TooltipProvider>
   );
 }

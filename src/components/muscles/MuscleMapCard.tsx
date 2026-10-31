@@ -153,7 +153,7 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
   if (!program && !trainedEver) {
     return (
       <Card className="p-5">
-        <h2 className="font-heading text-[18px]">Músculos</h2>
+        <h2 className="text-base font-semibold">Músculos</h2>
         <p className="mt-1 text-[12.5px] text-faint">
           {firstName} no tiene un programa activo ni entrenos registrados. Asígnale uno para ver qué músculos le toca
           trabajar y cuáles ha trabajado.
@@ -226,7 +226,7 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
     <Card className="p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="font-heading text-[18px]">Músculos</h2>
+          <h2 className="text-base font-semibold">Músculos</h2>
           <p className="mt-0.5 text-[12.5px] text-faint">
             {mode === 'week' && program ? (
               <>
@@ -271,11 +271,11 @@ export default function MuscleMapCard({ client }: { client: ClientWithMeta }) {
                   title={meta?.label ?? undefined}
                   className={cn(
                     'flex min-w-[46px] flex-none flex-col items-center border px-2 py-1 text-[12px] font-bold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                    active ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-border-strong',
+                    active ? 'border-foreground bg-foreground text-background' : 'border-border hover:border-border-strong',
                   )}
                 >
                   S{n}
-                  <span className={cn('text-[9.5px] font-semibold', active ? 'text-primary-foreground/85' : 'text-faint')}>
+                  <span className={cn('text-[9.5px] font-semibold', active ? 'text-background/75' : 'text-faint')}>
                     {n === now.week && !now.notStarted && !now.finished ? 'Actual' : meta?.is_deload ? 'Descarga' : ' '}
                   </span>
                 </button>

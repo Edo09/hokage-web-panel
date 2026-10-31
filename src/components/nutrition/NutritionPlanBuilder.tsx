@@ -1,6 +1,26 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type KeyboardEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { toast } from 'sonner';
-import { Check, ChevronDown, ChevronRight, Plus, Smartphone, Sparkles, Trash2, X } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  BedDouble,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Clock3,
+  CopyPlus,
+  Dumbbell,
+  Ellipsis,
+  ListPlus,
+  Plus,
+  Smartphone,
+  Sparkles,
+  StickyNote,
+  Trash2,
+  UtensilsCrossed,
+  X,
+} from 'lucide-react';
 import type { ClientWithMeta, DayType, NutritionPlanWithDetail, PlanMealType, PlanStatus } from '@/types';
 import {
   createNutritionPlan,
@@ -12,22 +32,36 @@ import {
   type SaveNutritionPlanInput,
 } from '@/services/nutritionPlans';
 import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Field, SectionHeader } from '@/components/ui/field';
+import { InfoTip } from '@/components/ui/info-tip';
+import { Segmented } from '@/components/ui/segmented';
+import { Tip } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FocusEditor } from '@/components/shared/FocusEditor';
+import { DiscardChangesDialog } from '@/components/shared/DiscardChangesDialog';
 import { MobileNutritionPreview } from '@/components/nutrition/MobileNutritionPreview';
 import { draftToPreview } from '@/components/nutrition/previewModel';
 import { AiNutritionDialog } from '@/components/nutrition/AiNutritionDialog';
 import { AiNutritionResultPanel } from '@/components/nutrition/AiNutritionResultPanel';
 import type { AiNutritionResult, NutritionAiHost } from '@/components/nutrition/aiModel';
+import { DAY_META, KCAL_PER_G, MEAL_ICON } from '@/components/nutrition/meta';
 import {
-  advSummary,
   APPLIES_TO,
+  dayTypesFor,
   draftSignature,
   emptyFood,
   emptyMeal,
@@ -38,7 +72,6 @@ import {
   MEAL_TYPES,
   mealsFrom,
   mealTypeLabel,
-  rangeText,
   STATUSES,
   targetHasData,
   targetsFrom,
@@ -52,165 +85,56 @@ import {
   type TargetRow,
 } from '@/components/nutrition/builderModel';
 
-const WIZARD_STEPS = ['Datos', 'Comidas y opciones', 'Objetivos', 'Revisar'] as const;
+/** The four target pairs, in the order they're shown. */
+const PAIRS = [
+  ['kcalMin', 'kcalMax'],
+  ['proteinMin', 'proteinMax'],
+  ['carbsMin', 'carbsMax'],
+  ['fatMin', 'fatMax'],
+] as const satisfies readonly (readonly [keyof TargetRow, keyof TargetRow])[];
 
-const NUM_SM = 'h-8 w-[62px] rounded-md border border-border bg-card px-1 text-center text-[12.5px]';
+/** Any min/max pair that isn't one number: those need the range inputs. */
+const hasRanges = (t: Record<DayType, TargetRow>): boolean =>
+  Object.values(t).some((row) =>
+    PAIRS.some(([a, b]) => {
+      const x = row[a].trim();
+      const y = row[b].trim();
+      return (x !== '' && y !== '' && x !== y) || (x !== '') !== (y !== '');
+    }),
+  );
 
-/* ---- small building blocks ---- */
-function Field({
-  label,
-  htmlFor,
-  children,
-  className,
-}: {
-  label: string;
-  htmlFor?: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-    </div>
-  );
-}
-function FieldCell({
-  label,
-  className,
-  children,
-}: {
-  label: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={cn('flex flex-col gap-1', className)}>
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-faint">{label}</span>
-      {children}
-    </div>
-  );
-}
-function Disclosure({
-  open,
-  onToggle,
-  label,
-  className = '',
-}: {
-  open: boolean;
-  onToggle: () => void;
-  label: string;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className={`flex items-center gap-1.5 font-semibold text-secondary transition-colors hover:text-secondary/80 focus-visible:outline-none ${className}`}
-    >
-      {open ? (
-        <ChevronDown className="h-3.5 w-3.5" strokeWidth={2.5} />
-      ) : (
-        <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} />
-      )}
-      {label}
-    </button>
-  );
-}
-function MacroRow({
-  label,
-  unit,
-  min,
-  max,
-  onMin,
-  onMax,
-}: {
-  label: string;
-  unit: string;
-  min: string;
-  max: string;
-  onMin: (v: string) => void;
-  onMax: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-[92px] flex-none text-[12.5px] text-muted-foreground">{label}</span>
-      <input
-        className={NUM_SM}
-        aria-label={`${label} mínimo`}
-        type="number"
-        min={0}
-        value={min}
-        onChange={(e) => onMin(e.target.value)}
-      />
-      <span className="text-faint">–</span>
-      <input
-        className={NUM_SM}
-        aria-label={`${label} máximo`}
-        type="number"
-        min={0}
-        value={max}
-        onChange={(e) => onMax(e.target.value)}
-      />
-      <span className="text-[11.5px] text-faint">{unit}</span>
-    </div>
-  );
-}
-function Stepper({
-  step,
-  maxStep,
-  onStep,
-}: {
-  step: number;
-  maxStep: number;
-  onStep: (s: number) => void;
-}) {
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-      {WIZARD_STEPS.map((label, i) => {
-        const active = i === step;
-        const done = i < step;
-        const reachable = i <= maxStep;
-        return (
-          <button
-            key={label}
-            type="button"
-            disabled={!reachable}
-            onClick={() => reachable && onStep(i)}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              active
-                ? 'bg-primary/10 text-primary dark:bg-primary/15'
-                : reachable
-                  ? 'text-muted-foreground hover:bg-muted'
-                  : 'cursor-default text-faint',
-            )}
-          >
-            <span
-              className={cn(
-                'flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-bold',
-                active ? 'bg-primary text-white' : done ? 'bg-secondary text-white' : 'border border-border-strong text-faint',
-              )}
-            >
-              {done ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : i + 1}
-            </span>
-            {label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
+/** Leaving range mode: each pair becomes one number (the lower one). */
+const collapseRanges = (t: Record<DayType, TargetRow>): Record<DayType, TargetRow> => {
+  const out = { ...t };
+  for (const dt of Object.keys(out) as DayType[]) {
+    const row = { ...out[dt] };
+    for (const [a, b] of PAIRS) {
+      const v = row[a].trim() || row[b].trim();
+      row[a] = v;
+      row[b] = v;
+    }
+    out[dt] = row;
+  }
+  return out;
+};
+
+/** A meal copied as a NEW meal: no DB ids, so saving inserts it. */
+const copyMeal = (m: MealRow): MealRow => ({
+  ...m,
+  id: undefined,
+  options: m.options.map((o) => ({ ...o, id: undefined, foods: o.foods.map((f) => ({ ...f })) })),
+});
 
 /**
- * The 4-step nutrition wizard, shared by two callers:
+ * The nutrition plan builder, shared by two callers:
  *   - a client's Nutrición tab → `client` set, saves an assigned plan;
  *   - the Nutrición library page → `client` omitted, saves a reusable TEMPLATE.
  *
- * A food row is a NAME and a day type — nothing else. No portion, no macros:
- * the coach prescribes what to eat, and every number is measured later from the
- * client's photo. The only figures collected here are the plan-level targets in
- * step 3.
+ * One canvas instead of steps: the plan's name, whether days differ (training
+ * vs rest), the daily targets, then the meals — each a card whose options sit
+ * side by side. A food row is a NAME and a day type — nothing else. No portion,
+ * no macros: the coach prescribes what to eat, and every number is measured
+ * later from the client's photo. The only figures are the daily targets.
  */
 export function NutritionPlanBuilder({
   client,
@@ -241,18 +165,20 @@ export function NutritionPlanBuilder({
   );
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [headerAdv, setHeaderAdv] = useState(
-    !!(initial?.description || initial?.notes || initial?.duration_weeks),
-  );
-  const [step, setStep] = useState(initial ? WIZARD_STEPS.length - 1 : 0);
-  const [maxStep, setMaxStep] = useState(initial ? WIZARD_STEPS.length - 1 : 0);
+  // Starts closed: what's set inside shows as chips beside the toggle.
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [rangeMode, setRangeMode] = useState(() => (initial ? hasRanges(targetsFrom(initial)) : false));
+  /** Dims what a given day type doesn't show — a check, not a filter. */
+  const [lens, setLens] = useState<DayType>('both');
+  const [confirmClose, setConfirmClose] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   /** The last AI answer applied, shown in the review panel until closed. */
   const [aiResult, setAiResult] = useState<AiNutritionResult | null>(null);
   /** Remounts the panel per result, so each one opens expanded and focused. */
   const [aiResultSeq, setAiResultSeq] = useState(0);
-  /** The step the coach was on when they asked the AI — where "Deshacer" returns. */
-  const aiStepBefore = useRef(0);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const mealsRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   // 'este cliente' reads right everywhere it's interpolated ("de este cliente").
   const firstName = client?.display_name?.split(' ')[0] ?? 'este cliente';
@@ -272,6 +198,13 @@ export function NutritionPlanBuilder({
     targets,
   });
 
+  // What "unsaved changes" is measured against.
+  const savedSig = useRef<string | null>(null);
+  if (savedSig.current === null) savedSig.current = draftSignature(snapshot());
+
+  const requestClose = () =>
+    draftSignature(snapshot()) !== savedSig.current ? setConfirmClose(true) : onClose();
+
   /** Replace the whole form at once (an AI result, or undoing one). */
   const replaceDraft = (next: NutritionDraft) => {
     setName(next.name);
@@ -284,8 +217,9 @@ export function NutritionPlanBuilder({
     setNotes(next.notes);
     setMeals(next.meals);
     setTargets(next.targets);
-    // Values behind "Más detalles" must not land out of sight.
-    if (next.description.trim() || next.notes.trim() || next.durationWeeks.trim()) setHeaderAdv(true);
+    // Ranges must show as ranges (the details stay closed: their chips say
+    // what the AI filled in).
+    if (hasRanges(next.targets)) setRangeMode(true);
   };
 
   /* ---- immutable patch helpers, one per nesting level ---- */
@@ -297,43 +231,47 @@ export function NutritionPlanBuilder({
         i === mi ? { ...m, options: m.options.map((o, k) => (k === oi ? { ...o, ...patch } : o)) } : m,
       ),
     );
-  const updFood = (mi: number, oi: number, fi: number, patch: Partial<FoodRow>) =>
+  const updFoods = (mi: number, oi: number, fn: (foods: FoodRow[]) => FoodRow[]) =>
     setMeals((ms) =>
       ms.map((m, i) =>
         i === mi
-          ? {
-              ...m,
-              options: m.options.map((o, k) =>
-                k === oi
-                  ? { ...o, foods: o.foods.map((f, j) => (j === fi ? { ...f, ...patch } : f)) }
-                  : o,
-              ),
-            }
+          ? { ...m, options: m.options.map((o, k) => (k === oi ? { ...o, foods: fn(o.foods) } : o)) }
           : m,
       ),
     );
   const updTarget = (dt: DayType, patch: Partial<TargetRow>) =>
     setTargets((t) => ({ ...t, [dt]: { ...t[dt], ...patch } }));
 
-  const step0Valid = name.trim() !== '';
-  const step1Valid = meals.some((m) => m.options.some((o) => o.foods.some((f) => f.name.trim())));
+  /** Focus a food input (rows are addressed by position). Call after the row
+   *  is committed — `change` runs inside flushSync so it is, and keys typed
+   *  right after Enter land in the new row, not the old one. */
+  const focusFood = (mi: number, oi: number, fi: number, atEnd = false, change?: () => void) => {
+    if (change) flushSync(change);
+    const el = canvasRef.current?.querySelector<HTMLInputElement>(`[data-food="${mi}-${oi}-${fi}"]`);
+    el?.focus();
+    if (el && atEnd) el.setSelectionRange(el.value.length, el.value.length);
+  };
 
-  const goTo = (s: number) => {
-    setStep(s);
-    setMaxStep((m) => Math.max(m, s));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  const goNext = () => {
-    if (step === 0 && !step0Valid) return toast.error('Ponle nombre al plan');
-    if (step === 1 && !step1Valid) return toast.error('Añade al menos una comida con un alimento');
-    goTo(Math.min(WIZARD_STEPS.length - 1, step + 1));
-  };
-  const goBack = () => setStep((s) => Math.max(0, s - 1));
+  const addFood = (mi: number, oi: number, at: number) =>
+    focusFood(mi, oi, at, false, () => updFoods(mi, oi, (fs) => [...fs.slice(0, at), emptyFood(), ...fs.slice(at)]));
+  const removeFood = (mi: number, oi: number, fi: number) =>
+    updFoods(mi, oi, (fs) => (fs.length > 1 ? fs.filter((_, j) => j !== fi) : [emptyFood()]));
+
+  const addMeal = (type: PlanMealType) =>
+    focusFood(meals.length, 0, 0, false, () => setMeals((ms) => [...ms, { ...emptyMeal(), mealType: type }]));
+  const moveMeal = (mi: number, dir: -1 | 1) =>
+    setMeals((ms) => {
+      const j = mi + dir;
+      if (j < 0 || j >= ms.length) return ms;
+      const out = [...ms];
+      [out[mi], out[j]] = [out[j], out[mi]];
+      return out;
+    });
 
   const submit = async () => {
     const nm = name.trim();
     if (!nm) {
-      setStep(0);
+      nameRef.current?.focus();
       return toast.error('Ponle nombre al plan');
     }
 
@@ -369,14 +307,14 @@ export function NutritionPlanBuilder({
       .filter((m) => m.options.length > 0);
 
     if (outMeals.length === 0) {
-      setStep(1);
-      return toast.error('Añade al menos una comida con un alimento');
+      mealsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      focusFood(0, 0, 0);
+      return toast.error('Añade al menos un alimento');
     }
 
     // Cycling on → a training row and a rest row; off → a single 'both' row.
     // Blank rows are dropped so an untouched plan carries no empty targets.
-    const dayTypes: DayType[] = dayCycling ? ['training', 'rest'] : ['both'];
-    const outTargets: NutritionTargetInput[] = dayTypes
+    const outTargets: NutritionTargetInput[] = dayTypesFor(dayCycling)
       .filter((dt) => targetHasData(targets[dt]))
       .map((dt) => {
         const t = targets[dt];
@@ -412,10 +350,10 @@ export function NutritionPlanBuilder({
       if (initial) {
         if (isTemplate) {
           await updateNutritionTemplate(initial.id, payload);
-          toast.success('Plantilla actualizada');
+          toast.success('Plantilla guardada');
         } else {
           await updateNutritionPlan(initial.id, client!.id, payload);
-          toast.success('Plan actualizado');
+          toast.success('Plan guardado');
         }
       } else if (isTemplate) {
         await createNutritionTemplate(payload);
@@ -442,9 +380,6 @@ export function NutritionPlanBuilder({
     snapshot,
     replaceDraft,
   };
-  const summaryText = `${meals.length} ${meals.length === 1 ? 'comida' : 'comidas'} · ${foodCount} ${
-    foodCount === 1 ? 'alimento' : 'alimentos'
-  }${dayCycling ? ' · con ciclado' : ''}`;
   const saveLabel = saving
     ? 'Guardando…'
     : initial
@@ -452,118 +387,100 @@ export function NutritionPlanBuilder({
       : isTemplate
         ? 'Guardar plantilla'
         : `Asignar a ${firstName}`;
-  const isLast = step === WIZARD_STEPS.length - 1;
+  const preview = draftToPreview({ name, focus, notes, dayCycling }, meals, targets);
+  const detailChips = [
+    durationWeeks.trim() && `${durationWeeks.trim()} ${durationWeeks.trim() === '1' ? 'semana' : 'semanas'}`,
+    description.trim() && 'Descripción',
+    notes.trim() && 'Notas',
+  ].filter(Boolean) as string[];
 
   return (
-    <Card className="animate-fade-up overflow-hidden border-[1.5px] border-primary p-0">
-      {/* Header + stepper */}
-      <div className="border-b border-border px-[22px] py-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="font-heading text-[15px] font-semibold">
-            {isTemplate
-              ? initial
-                ? 'Editar plantilla'
-                : 'Nueva plantilla nutricional'
-              : initial
-                ? 'Editar plan'
-                : 'Nuevo plan nutricional'}
-            <span className="ml-1.5 text-[13px] font-normal text-faint">
-              {isTemplate ? '· reutilizable' : `· para ${firstName}`}
+    <FocusEditor
+      kicker={isTemplate ? 'Nutrición · plantilla' : `Nutrición de ${firstName}`}
+      title={isTemplate ? (initial ? 'Editar plantilla' : 'Nueva plantilla') : initial ? 'Editar plan' : 'Nuevo plan'}
+      onClose={requestClose}
+      actions={
+        <>
+          <Button variant="ghost" size="sm" onClick={() => setAiOpen(true)} aria-label={foodCount > 0 ? 'Editar con IA' : 'Crear con IA'} className="text-foreground">
+            <Sparkles className="!text-primary" strokeWidth={2.25} />
+            <span className="hidden sm:inline">{foodCount > 0 ? 'Editar con IA' : 'Crear con IA'}</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setPreviewOpen(true)} aria-label="Vista previa" className="text-foreground xl:hidden">
+            <Smartphone />
+            <span className="hidden sm:inline">Vista previa</span>
+          </Button>
+        </>
+      }
+      footer={
+        <>
+          <div className="hidden min-w-0 flex-1 items-center gap-5 text-[13px] text-muted-foreground sm:flex">
+            <span className="flex items-center gap-1.5">
+              <UtensilsCrossed className="h-4 w-4" />
+              <strong className="font-semibold tabular-nums text-foreground">{meals.length}</strong>
+              {meals.length === 1 ? 'comida' : 'comidas'}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <ListPlus className="h-4 w-4" />
+              <strong className="font-semibold tabular-nums text-foreground">{foodCount}</strong>
+              {foodCount === 1 ? 'alimento' : 'alimentos'}
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setAiOpen(true)}
-              className="border-primary/60 text-primary hover:bg-primary/10"
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} /> {foodCount > 0 ? 'Editar con IA' : 'Generar con IA'}
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
-              <Smartphone className="h-3.5 w-3.5" strokeWidth={2} /> Vista previa
-            </Button>
-            <Button variant="outline" size="sm" onClick={onClose}>
-              Cancelar
-            </Button>
-          </div>
-        </div>
-        <Stepper step={step} maxStep={maxStep} onStep={goTo} />
-      </div>
+          <Button variant="ghost" onClick={requestClose}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void submit()} disabled={saving} className="flex-1 sm:flex-none">
+            {saveLabel}
+          </Button>
+        </>
+      }
+    >
+      <div ref={canvasRef} className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="mx-auto flex w-full min-w-0 max-w-[920px] flex-col gap-8">
+          {aiResult && (
+            <AiNutritionResultPanel
+              key={aiResultSeq}
+              result={aiResult}
+              editedSince={() => draftSignature(snapshot()) !== draftSignature(aiResult.after)}
+              showMeals={false}
+              onUndo={() => {
+                replaceDraft(aiResult.before);
+                setAiResult(null);
+              }}
+              onRefine={() => setAiOpen(true)}
+              onDismiss={() => setAiResult(null)}
+            />
+          )}
 
-      {aiResult && (
-        <div className="px-[22px] pt-[22px]">
-          <AiNutritionResultPanel
-            key={aiResultSeq}
-            result={aiResult}
-            editedSince={() => draftSignature(snapshot()) !== draftSignature(aiResult.after)}
-            showMeals={step !== WIZARD_STEPS.length - 1}
-            onUndo={() => {
-              replaceDraft(aiResult.before);
-              setAiResult(null);
-              goTo(aiStepBefore.current);
-            }}
-            onRefine={() => setAiOpen(true)}
-            onDismiss={() => setAiResult(null)}
-          />
-        </div>
-      )}
-
-      <div className="p-[22px]">
-        {/* Step 1 · Datos */}
-        {step === 0 && (
-          <div className="flex flex-col gap-5">
-            <p className="text-[12.5px] text-faint">Lo básico del plan. Solo el nombre es obligatorio.</p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Nombre" htmlFor="nb-name">
-                <Input
-                  id="nb-name"
-                  placeholder="Ej. Protocolo Nutricional Fase 2"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  autoFocus
-                />
-              </Field>
-              <Field label="Enfoque" htmlFor="nb-focus">
-                <Input
-                  id="nb-focus"
-                  placeholder="Ej. Ciclado de carbohidratos"
-                  value={focus}
-                  onChange={(e) => setFocus(e.target.value)}
-                />
-              </Field>
-            </div>
-
-            {/* The switch that decides whether the whole plan has two faces. */}
-            <div className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-3.5">
-              <Switch
-                id="nb-cycling"
-                checked={dayCycling}
-                onCheckedChange={setDayCycling}
-                aria-label="Ciclado de carbohidratos"
+          {/* ---- the plan ---- */}
+          <section aria-label="Datos del plan" className="flex flex-col gap-4">
+            <div>
+              <label htmlFor="nb-name" className="sr-only">
+                Nombre del plan
+              </label>
+              <input
+                id="nb-name"
+                ref={nameRef}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nombre del plan"
+                autoFocus={!initial}
+                className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint/50 hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
               />
-              <div className="min-w-0">
-                <Label htmlFor="nb-cycling" className="text-[13px]">
-                  Ciclado por tipo de día
-                </Label>
-                <p className="mt-0.5 text-[12px] text-faint">
-                  El plan cambia entre días de entrenamiento y de descanso. Podrás marcar qué
-                  alimentos aparecen en cada uno y fijar objetivos distintos.
-                </p>
-              </div>
+              <input
+                aria-label="Enfoque"
+                value={focus}
+                onChange={(e) => setFocus(e.target.value)}
+                placeholder="Añade un enfoque, ej. Definición"
+                className="inline-input -mx-2 mt-1 h-9 max-w-xl text-[15px] text-muted-foreground"
+              />
             </div>
 
             {!isTemplate && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Fecha de inicio" htmlFor="nb-start">
-                  <Input
-                    id="nb-start"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+              <div className="flex flex-wrap items-end gap-3">
+                <Field label="Empieza" htmlFor="nb-start" className="w-[170px]">
+                  <Input id="nb-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
                 </Field>
-                <Field label="Estado">
+                <Field label="Estado" className="w-[170px]">
                   <Select value={status} onValueChange={(v) => setStatus(v as PlanStatus)}>
                     <SelectTrigger aria-label="Estado">
                       <SelectValue />
@@ -581,37 +498,48 @@ export function NutritionPlanBuilder({
             )}
 
             <div>
-              <Disclosure
-                open={headerAdv}
-                onToggle={() => setHeaderAdv((v) => !v)}
-                label="Más detalles"
-                className="text-[12.5px]"
-              />
-              {headerAdv && (
-                <div className="mt-3 flex flex-col gap-3">
-                  <Field label="Duración (semanas)" htmlFor="nb-weeks" className="max-w-[220px]">
-                    <Input
-                      id="nb-weeks"
-                      type="number"
-                      min={1}
-                      max={52}
-                      placeholder="Sin límite"
-                      value={durationWeeks}
-                      onChange={(e) => setDurationWeeks(e.target.value)}
-                    />
-                    <span className="text-[11.5px] text-faint">
-                      Déjalo vacío si la fase no tiene fin definido.
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((v) => !v)}
+                  aria-expanded={detailsOpen}
+                  aria-controls="nb-details"
+                  className="-ml-1 inline-flex h-8 items-center gap-1 rounded-md px-1 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <ChevronDown className={cn('h-4 w-4 transition-transform', !detailsOpen && '-rotate-90')} />
+                  Duración, descripción y notas
+                </button>
+                {!detailsOpen &&
+                  detailChips.map((c) => (
+                    <span key={c} className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      {c}
                     </span>
+                  ))}
+              </div>
+              {detailsOpen && (
+                <div id="nb-details" className="mt-3 grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+                  <Field label="Duración" htmlFor="nb-weeks" tip="Déjalo vacío si la fase no tiene fecha de fin." optional>
+                    <div className="relative">
+                      <Input
+                        id="nb-weeks"
+                        type="number"
+                        inputMode="numeric"
+                        min={1}
+                        max={52}
+                        placeholder="Sin fin"
+                        value={durationWeeks}
+                        onChange={(e) => setDurationWeeks(e.target.value)}
+                        className="pr-20"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-faint">
+                        semanas
+                      </span>
+                    </div>
                   </Field>
-                  <Field label="Descripción" htmlFor="nb-desc">
-                    <Textarea
-                      id="nb-desc"
-                      rows={2}
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                    />
+                  <Field label="Descripción" htmlFor="nb-desc" optional>
+                    <Textarea id="nb-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
                   </Field>
-                  <Field label="Notas para el cliente" htmlFor="nb-notes">
+                  <Field label="Notas para el cliente" htmlFor="nb-notes" tip="Las ve en su plan, dentro de la app." optional className="sm:col-span-2">
                     <Textarea
                       id="nb-notes"
                       rows={2}
@@ -623,384 +551,155 @@ export function NutritionPlanBuilder({
                 </div>
               )}
             </div>
-          </div>
-        )}
+          </section>
 
-        {/* Step 2 · Comidas y opciones */}
-        {step === 1 && (
-          <div className="flex flex-col gap-3.5">
-            <p className="text-[12.5px] text-faint">
-              Una tarjeta por comida. Dentro, cada opción es una rotación que el cliente puede
-              elegir. Solo escribes el alimento — las calorías y macros las calcula la app cuando el
-              cliente sube la foto de su plato.
-            </p>
+          {/* ---- one kind of day, or training vs rest ---- */}
+          <section aria-labelledby="nb-daymode" className="flex flex-col gap-2">
+            <div className="flex items-center gap-1.5">
+              <h2 id="nb-daymode" className="text-base font-semibold">
+                Días
+              </h2>
+              <InfoTip label="Qué cambia con «Entreno y descanso»">
+                Con <b className="text-foreground">Entreno y descanso</b> puedes marcar alimentos y comidas solo para un tipo de
+                día, y fijar objetivos distintos para cada uno (ciclado de carbohidratos).
+              </InfoTip>
+            </div>
+            <Segmented
+              aria-labelledby="nb-daymode"
+              className="sm:w-auto sm:self-start"
+              stretch
+              value={dayCycling ? 'cycling' : 'same'}
+              onChange={(v) => {
+                setDayCycling(v === 'cycling');
+                setLens('both');
+              }}
+              options={[
+                { value: 'same', label: 'Todos iguales', icon: CalendarDays },
+                { value: 'cycling', label: 'Entreno y descanso', icon: Dumbbell },
+              ]}
+            />
+          </section>
 
-            {meals.map((meal, mi) => {
-              const adv = advSummary(meal);
-              return (
-                <div key={mi} className="rounded-xl border border-border bg-muted/40 p-3.5">
-                  <div className="mb-3 grid gap-2 sm:grid-cols-[150px_1fr_auto]">
-                    <Select
-                      value={meal.mealType}
-                      onValueChange={(v) => updMeal(mi, { mealType: v as PlanMealType })}
-                    >
-                      <SelectTrigger className="h-9 text-[13px]" aria-label={`Tipo de comida ${mi + 1}`}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MEAL_TYPES.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      aria-label={`Etiqueta de la comida ${mi + 1}`}
-                      placeholder={`Etiqueta — por defecto "${mealTypeLabel(meal.mealType)}"`}
-                      className="h-9 text-[13px]"
-                      value={meal.label}
-                      onChange={(e) => updMeal(mi, { label: e.target.value })}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => meals.length > 1 && setMeals((ms) => ms.filter((_, i) => i !== mi))}
-                      aria-label={`Quitar comida ${mi + 1}`}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-faint transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-                    </button>
-                  </div>
-
-                  {/* Options — the rotation tier */}
-                  <div className="flex flex-col gap-2">
-                    {meal.options.map((opt, oi) => (
-                      <div key={oi} className="rounded-xl border border-border bg-card p-3">
-                        <div className="flex items-center gap-2.5">
-                          <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-muted text-[11px] font-bold tabular-nums text-muted-foreground">
-                            {oi + 1}
-                          </span>
-                          <Input
-                            aria-label="Etiqueta de la opción"
-                            placeholder="Ej. Opción 1 · Día 1-2"
-                            className="h-9 min-w-0 flex-1 text-[13.5px] font-medium"
-                            value={opt.label}
-                            onChange={(e) => updOption(mi, oi, { label: e.target.value })}
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              meal.options.length > 1 &&
-                              updMeal(mi, { options: meal.options.filter((_, k) => k !== oi) })
-                            }
-                            aria-label="Quitar opción"
-                            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border text-faint transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-                          </button>
-                        </div>
-
-                        {/* Foods — name, plus a day selector only when cycling */}
-                        <div className="mt-2.5 flex flex-col gap-1.5 pl-[34px]">
-                          {opt.foods.map((food, fi) => (
-                            <div key={fi} className="flex items-center gap-2">
-                              <Input
-                                aria-label="Alimento"
-                                placeholder="Ej. Pechuga de pollo"
-                                className="h-8 min-w-0 flex-1 text-[13px]"
-                                value={food.name}
-                                onChange={(e) => updFood(mi, oi, fi, { name: e.target.value })}
-                              />
-                              {dayCycling && (
-                                <Select
-                                  value={food.dayType}
-                                  onValueChange={(v) => updFood(mi, oi, fi, { dayType: v as DayType })}
-                                >
-                                  <SelectTrigger
-                                    className="h-8 w-[118px] flex-none text-[12px]"
-                                    aria-label="Días en que aplica"
-                                  >
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {FOOD_DAYS.map((d) => (
-                                      <SelectItem key={d.value} value={d.value}>
-                                        {d.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  opt.foods.length > 1 &&
-                                  updOption(mi, oi, { foods: opt.foods.filter((_, j) => j !== fi) })
-                                }
-                                aria-label="Quitar alimento"
-                                className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-faint transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                              >
-                                <X className="h-3 w-3" strokeWidth={2.5} />
-                              </button>
-                            </div>
-                          ))}
-                          <button
-                            type="button"
-                            onClick={() => updOption(mi, oi, { foods: [...opt.foods, emptyFood()] })}
-                            className="mt-0.5 flex w-fit items-center gap-1 text-[12px] font-semibold text-secondary transition-colors hover:text-secondary/80 focus-visible:outline-none"
-                          >
-                            <Plus className="h-3 w-3" strokeWidth={2.5} /> Alimento
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        updMeal(mi, { options: [...meal.options, emptyOption(meal.options.length + 1)] })
-                      }
-                      className="flex w-fit items-center gap-1 text-[12.5px] font-semibold text-secondary transition-colors hover:text-secondary/80 focus-visible:outline-none"
-                    >
-                      <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Opción de rotación
-                    </button>
-                  </div>
-
-                  {/* Slot-level advanced */}
-                  <div className="mt-3 border-t border-border pt-2.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Disclosure
-                        open={meal.advOpen}
-                        onToggle={() => updMeal(mi, { advOpen: !meal.advOpen })}
-                        label="Avanzado"
-                        className="text-[12px]"
-                      />
-                      {!meal.advOpen && adv && <span className="text-[11.5px] text-faint">{adv}</span>}
-                    </div>
-                    {meal.advOpen && (
-                      <div className="mt-2.5 flex flex-wrap items-end gap-2.5">
-                        {dayCycling && (
-                          <FieldCell label="Aparece en" className="w-[176px]">
-                            <Select
-                              value={meal.appliesTo}
-                              onValueChange={(v) => updMeal(mi, { appliesTo: v as DayType })}
-                            >
-                              <SelectTrigger className="h-8 text-[12.5px]" aria-label="Aparece en">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {APPLIES_TO.map((a) => (
-                                  <SelectItem key={a.value} value={a.value}>
-                                    {a.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </FieldCell>
-                        )}
-                        <FieldCell label="Horario" className="w-[190px]">
-                          <Input
-                            className="h-8 text-[12.5px]"
-                            aria-label="Horario"
-                            placeholder="Ej. 30-45 min antes"
-                            value={meal.timeHint}
-                            onChange={(e) => updMeal(mi, { timeHint: e.target.value })}
-                          />
-                        </FieldCell>
-                        <label className="flex h-8 items-center gap-2 text-[12.5px] text-muted-foreground">
-                          <Switch
-                            checked={meal.isOptional}
-                            onCheckedChange={(v) => updMeal(mi, { isOptional: v })}
-                            aria-label="Comida opcional"
-                          />
-                          Opcional
-                        </label>
-                        <FieldCell label="Nota" className="w-full">
-                          <Input
-                            className="h-8 text-[12.5px]"
-                            aria-label="Nota de la comida"
-                            placeholder="Ej. En días de descanso sustituir por 1 scoop de proteína."
-                            value={meal.notes}
-                            onChange={(e) => updMeal(mi, { notes: e.target.value })}
-                          />
-                        </FieldCell>
-                      </div>
-                    )}
-                  </div>
+          {/* ---- daily targets ---- */}
+          <section aria-labelledby="nb-targets" className="flex flex-col gap-3">
+            <SectionHeader
+              id="nb-targets"
+              title="Objetivo diario"
+              tip="Los únicos números del plan. Lo que el cliente registra con fotos se compara con esto. Puedes dejarlo vacío."
+              actions={
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="nb-range"
+                    checked={rangeMode}
+                    onCheckedChange={(v) => {
+                      if (!v) setTargets(collapseRanges);
+                      setRangeMode(v);
+                    }}
+                  />
+                  <Label htmlFor="nb-range" className="cursor-pointer">
+                    Rangos
+                  </Label>
+                  <InfoTip label="Qué son los rangos">
+                    Escribe un mínimo y un máximo (ej. 150–170 g) en lugar de un número exacto.
+                  </InfoTip>
                 </div>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={() => setMeals((ms) => [...ms, emptyMeal()])}
-              className="flex w-fit items-center gap-1.5 rounded-lg border border-dashed border-border-strong px-3 py-2 text-[13px] font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.5} /> Añadir comida
-            </button>
-          </div>
-        )}
-
-        {/* Step 3 · Objetivos */}
-        {step === 2 && (
-          <div className="flex flex-col gap-4">
-            <p className="text-[12.5px] text-faint">
-              Los únicos números que escribes. Son el objetivo diario contra el que se compara lo
-              que el cliente registra con fotos. Puedes dejarlos vacíos.
-            </p>
-            <div className={cn('grid gap-3.5', dayCycling && 'sm:grid-cols-2')}>
-              {(dayCycling ? (['training', 'rest'] as DayType[]) : (['both'] as DayType[])).map((dt) => (
-                <div key={dt} className="rounded-xl border border-border bg-muted/40 p-3.5">
-                  <div className="mb-3 font-heading text-[13.5px] font-semibold">
-                    {dt === 'training'
-                      ? 'Días de entrenamiento'
-                      : dt === 'rest'
-                        ? 'Días de descanso'
-                        : 'Todos los días'}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <MacroRow
-                      label="Calorías"
-                      unit="kcal"
-                      min={targets[dt].kcalMin}
-                      max={targets[dt].kcalMax}
-                      onMin={(v) => updTarget(dt, { kcalMin: v })}
-                      onMax={(v) => updTarget(dt, { kcalMax: v })}
-                    />
-                    <MacroRow
-                      label="Proteína"
-                      unit="g"
-                      min={targets[dt].proteinMin}
-                      max={targets[dt].proteinMax}
-                      onMin={(v) => updTarget(dt, { proteinMin: v })}
-                      onMax={(v) => updTarget(dt, { proteinMax: v })}
-                    />
-                    <MacroRow
-                      label="Carbohidratos"
-                      unit="g"
-                      min={targets[dt].carbsMin}
-                      max={targets[dt].carbsMax}
-                      onMin={(v) => updTarget(dt, { carbsMin: v })}
-                      onMax={(v) => updTarget(dt, { carbsMax: v })}
-                    />
-                    <MacroRow
-                      label="Grasas"
-                      unit="g"
-                      min={targets[dt].fatMin}
-                      max={targets[dt].fatMax}
-                      onMin={(v) => updTarget(dt, { fatMin: v })}
-                      onMax={(v) => updTarget(dt, { fatMax: v })}
-                    />
-                  </div>
-                </div>
+              }
+            />
+            <div className={cn('grid gap-3', dayCycling && 'lg:grid-cols-2')}>
+              {dayTypesFor(dayCycling).map((dt) => (
+                <TargetCard key={dt} dayType={dt} t={targets[dt]} range={rangeMode} onChange={(p) => updTarget(dt, p)} />
               ))}
             </div>
-          </div>
-        )}
+          </section>
 
-        {/* Step 4 · Revisar */}
-        {step === 3 && (
-          <div className="flex flex-col gap-4">
-            <div>
-              <div className="font-heading text-[15px] font-semibold">{name.trim() || 'Sin nombre'}</div>
-              <div className="mt-0.5 text-[12.5px] text-faint">
-                {focus.trim() ? `${focus.trim()} · ` : ''}
-                {summaryText}
-              </div>
-            </div>
-
-            {meals.map((meal, mi) => {
-              const title = meal.label.trim() || mealTypeLabel(meal.mealType);
-              const shown = meal.options.filter((o) => o.foods.some((f) => f.name.trim()));
-              if (shown.length === 0) return null;
-              return (
-                <div key={mi} className="rounded-xl border border-border p-3.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[13.5px] font-semibold">{title}</span>
-                    {meal.appliesTo !== 'both' && dayCycling && (
-                      <span className="rounded-full bg-warning/10 px-2 py-[1px] text-[10.5px] font-bold text-warning">
-                        {meal.appliesTo === 'training' ? 'solo entreno' : 'solo descanso'}
-                      </span>
-                    )}
-                    {meal.isOptional && (
-                      <span className="rounded-full bg-secondary/10 px-2 py-[1px] text-[10.5px] font-bold text-secondary">
-                        opcional
-                      </span>
-                    )}
+          {/* ---- meals ---- */}
+          <section ref={mealsRef} aria-labelledby="nb-meals" className="flex scroll-mt-24 flex-col gap-3">
+            <SectionHeader
+              id="nb-meals"
+              title="Comidas"
+              count={meals.length}
+              tip="Cada comida tiene una o más opciones y el cliente elige una. Solo escribes los alimentos: la app calcula calorías y macros con la foto del plato."
+              actions={
+                dayCycling && (
+                  <div className="flex items-center gap-2">
+                    <span className="hidden text-[13px] text-muted-foreground sm:inline">Ver día de</span>
+                    <Segmented<DayType>
+                      aria-label="Ver cómo queda cada tipo de día"
+                      size="sm"
+                      value={lens}
+                      onChange={setLens}
+                      options={[
+                        { value: 'both', label: 'Todo' },
+                        { value: 'training', label: 'Entreno', icon: Dumbbell },
+                        { value: 'rest', label: 'Descanso', icon: BedDouble },
+                      ]}
+                    />
                   </div>
-                  <div className="mt-2 flex flex-col gap-1.5">
-                    {shown.map((opt, oi) => (
-                      <div key={oi} className="text-[12.5px]">
-                        <span className="font-semibold text-muted-foreground">
-                          {opt.label.trim() || `Opción ${oi + 1}`}
-                        </span>
-                        <span className="text-faint"> — </span>
-                        {opt.foods
-                          .filter((f) => f.name.trim())
-                          .map((f, fi, arr) => (
-                            <span key={fi}>
-                              {f.name.trim()}
-                              {dayCycling && f.dayType !== 'both' && (
-                                <span className="text-faint">
-                                  {' '}
-                                  ({f.dayType === 'training' ? 'entreno' : 'descanso'})
-                                </span>
-                              )}
-                              {fi < arr.length - 1 ? ', ' : ''}
-                            </span>
-                          ))}
-                      </div>
-                    ))}
-                  </div>
-                  {meal.notes.trim() && (
-                    <p className="mt-2 text-[11.5px] text-faint">{meal.notes.trim()}</p>
-                  )}
-                </div>
-              );
-            })}
+                )
+              }
+            />
 
-            {(dayCycling ? (['training', 'rest'] as DayType[]) : (['both'] as DayType[]))
-              .filter((dt) => targetHasData(targets[dt]))
-              .map((dt) => {
-                const t = targets[dt];
+            {meals.map((meal, mi) => (
+              <MealCard
+                key={mi}
+                meal={meal}
+                mi={mi}
+                count={meals.length}
+                dayCycling={dayCycling}
+                lens={lens}
+                onPatch={(p) => updMeal(mi, p)}
+                onPatchOption={(oi, p) => updOption(mi, oi, p)}
+                onFoodName={(oi, fi, v) => updFoods(mi, oi, (fs) => fs.map((f, j) => (j === fi ? { ...f, name: v } : f)))}
+                onFoodDay={(oi, fi, v) => updFoods(mi, oi, (fs) => fs.map((f, j) => (j === fi ? { ...f, dayType: v } : f)))}
+                onAddFood={(oi, at) => addFood(mi, oi, at)}
+                onRemoveFood={(oi, fi) => removeFood(mi, oi, fi)}
+                onFocusFood={(oi, fi) => focusFood(mi, oi, fi, true)}
+                onAddOption={() =>
+                  focusFood(mi, meal.options.length, 0, false, () =>
+                    updMeal(mi, { options: [...meal.options, emptyOption(meal.options.length + 1)] }),
+                  )
+                }
+                onRemoveOption={(oi) => updMeal(mi, { options: meal.options.filter((_, k) => k !== oi) })}
+                onDuplicate={() => setMeals((ms) => [...ms.slice(0, mi + 1), copyMeal(ms[mi]), ...ms.slice(mi + 1)])}
+                onMove={(d) => moveMeal(mi, d)}
+                onRemove={() => setMeals((ms) => (ms.length > 1 ? ms.filter((_, i) => i !== mi) : ms))}
+              />
+            ))}
+
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-dashed border-border-strong p-3">
+              <span className="mr-1 flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground">
+                <Plus className="h-4 w-4" /> Añadir
+              </span>
+              {MEAL_TYPES.map((t) => {
+                const Icon = MEAL_ICON[t.value];
                 return (
-                  <div key={dt} className="rounded-xl border border-border p-3.5">
-                    <div className="text-[13px] font-semibold">
-                      Objetivo ·{' '}
-                      {dt === 'training' ? 'entrenamiento' : dt === 'rest' ? 'descanso' : 'todos los días'}
-                    </div>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] tabular-nums text-muted-foreground">
-                      <span>{rangeText(t.kcalMin, t.kcalMax)} kcal</span>
-                      <span>P {rangeText(t.proteinMin, t.proteinMax)} g</span>
-                      <span>C {rangeText(t.carbsMin, t.carbsMax)} g</span>
-                      <span>G {rangeText(t.fatMin, t.fatMax)} g</span>
-                    </div>
-                  </div>
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => addMeal(t.value)}
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-3.5 text-[13px] font-medium transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    {t.label}
+                  </button>
                 );
               })}
-          </div>
-        )}
-      </div>
-
-      {/* Footer nav */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-[22px] py-3.5">
-        <span className="text-[12px] text-faint">{summaryText}</span>
-        <div className="flex items-center gap-2">
-          {step > 0 && (
-            <Button variant="outline" size="sm" onClick={goBack}>
-              Atrás
-            </Button>
-          )}
-          {!isLast ? (
-            <Button size="sm" onClick={goNext}>
-              Siguiente
-            </Button>
-          ) : (
-            <Button size="sm" disabled={saving} onClick={() => void submit()}>
-              {saveLabel}
-            </Button>
-          )}
+            </div>
+          </section>
         </div>
+
+        {/* Live preview of the unsaved draft, beside it on wide screens. */}
+        <aside aria-label="Vista previa en la app" className="hidden xl:block">
+          <div className="sticky top-[88px] flex flex-col gap-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-sm font-semibold">Así lo ve el cliente</span>
+              <span className="flex items-center gap-1.5 text-xs text-faint">
+                <span className="h-1.5 w-1.5 rounded-full bg-success" /> en vivo
+              </span>
+            </div>
+            <MobileNutritionPreview plan={preview} />
+          </div>
+        </aside>
       </div>
 
       <AiNutritionDialog
@@ -1008,25 +707,609 @@ export function NutritionPlanBuilder({
         open={aiOpen}
         onOpenChange={setAiOpen}
         onApplied={(r) => {
-          aiStepBefore.current = step;
           setAiResult(r);
           setAiResultSeq((n) => n + 1);
-          // The whole plan at once, with the panel above it.
-          goTo(WIZARD_STEPS.length - 1);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
-      {/* Live preview of the unsaved draft */}
+      <DiscardChangesDialog open={confirmClose} onOpenChange={setConfirmClose} editing={!!initial} onDiscard={onClose} />
+
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Vista previa</DialogTitle>
+            <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          <MobileNutritionPreview
-            plan={draftToPreview({ name, focus, notes, dayCycling }, meals, targets)}
-          />
+          <MobileNutritionPreview plan={preview} />
         </DialogContent>
       </Dialog>
-    </Card>
+    </FocusEditor>
+  );
+}
+
+/* ------------------------------------------------------------------ targets */
+
+const mid = (a: string, b: string): number | null => {
+  const x = toNum(a);
+  const y = toNum(b);
+  if (x != null && y != null) return (x + y) / 2;
+  return x ?? y;
+};
+
+function TargetCard({
+  dayType,
+  t,
+  range,
+  onChange,
+}: {
+  dayType: DayType;
+  t: TargetRow;
+  range: boolean;
+  onChange: (patch: Partial<TargetRow>) => void;
+}) {
+  const meta = DAY_META[dayType];
+  const Icon = meta.icon;
+  const id = `nb-t-${dayType}`;
+  const macro = (minKey: keyof TargetRow, maxKey: keyof TargetRow, label: string, dot: string) => (
+    <MacroField
+      id={`${id}-${minKey}`}
+      label={label}
+      unit="g"
+      dot={dot}
+      range={range}
+      min={t[minKey]}
+      max={t[maxKey]}
+      onMin={(v) => onChange({ [minKey]: v })}
+      onMax={(v) => onChange({ [maxKey]: v })}
+    />
+  );
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+      <div className={cn('flex items-center gap-2 text-sm font-semibold', meta.tone)}>
+        <Icon className="h-4 w-4" />
+        <span className={dayType === 'both' ? 'text-foreground' : undefined}>{meta.title}</span>
+      </div>
+      <MacroField
+        id={`${id}-kcal`}
+        label="Calorías"
+        unit="kcal"
+        big
+        range={range}
+        min={t.kcalMin}
+        max={t.kcalMax}
+        onMin={(v) => onChange({ kcalMin: v })}
+        onMax={(v) => onChange({ kcalMax: v })}
+      />
+      <div className={cn('grid gap-3', range ? 'grid-cols-1' : 'grid-cols-3')}>
+        {macro('proteinMin', 'proteinMax', 'Proteína', 'bg-protein')}
+        {macro('carbsMin', 'carbsMax', 'Carbos', 'bg-carbs')}
+        {macro('fatMin', 'fatMax', 'Grasa', 'bg-fat')}
+      </div>
+      <MacroSplit t={t} onUseKcal={(k) => onChange({ kcalMin: k, kcalMax: k })} range={range} />
+    </div>
+  );
+}
+
+const NUM =
+  'no-spin h-10 w-full min-w-0 rounded-lg border border-border bg-field px-3 text-[15px] font-semibold tabular-nums text-foreground transition-colors placeholder:font-normal placeholder:text-faint hover:border-border-strong focus-visible:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const NUM_BIG = 'h-14 font-display text-[30px] font-normal tracking-wide placeholder:font-sans placeholder:text-base';
+
+/** One target figure: a single number by default, min–max in range mode
+ *  (a single number is stored as min = max). */
+function MacroField({
+  id,
+  label,
+  unit,
+  dot,
+  big,
+  range,
+  min,
+  max,
+  onMin,
+  onMax,
+}: {
+  id: string;
+  label: string;
+  unit: string;
+  dot?: string;
+  big?: boolean;
+  range: boolean;
+  min: string;
+  max: string;
+  onMin: (v: string) => void;
+  onMax: (v: string) => void;
+}) {
+  const labelEl = (
+    <label htmlFor={id} className="flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground">
+      {dot && <span aria-hidden="true" className={cn('h-2 w-2 flex-none rounded-full', dot)} />}
+      {label}
+    </label>
+  );
+
+  if (range) {
+    return (
+      <div className={cn('flex gap-1.5', big ? 'flex-col' : 'items-center justify-between gap-3')}>
+        {labelEl}
+        <div className="flex items-center gap-1.5">
+          <input
+            id={id}
+            type="number"
+            inputMode="decimal"
+            min={0}
+            aria-label={`${label} mínimo`}
+            placeholder="mín"
+            value={min}
+            onChange={(e) => onMin(e.target.value)}
+            className={cn(NUM, big ? cn(NUM_BIG, 'w-32') : 'w-20')}
+          />
+          <span className="text-faint">–</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            aria-label={`${label} máximo`}
+            placeholder="máx"
+            value={max}
+            onChange={(e) => onMax(e.target.value)}
+            className={cn(NUM, big ? cn(NUM_BIG, 'w-32') : 'w-20')}
+          />
+          <span className="w-8 text-[13px] text-faint">{unit}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {labelEl}
+      <div className="relative">
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          min={0}
+          placeholder={big ? 'Ej. 2200' : '—'}
+          value={min.trim() || max.trim()}
+          onChange={(e) => {
+            onMin(e.target.value);
+            onMax(e.target.value);
+          }}
+          className={cn(NUM, big && NUM_BIG, big ? 'pr-16' : 'pr-7')}
+        />
+        <span className={cn('pointer-events-none absolute top-1/2 -translate-y-1/2 text-faint', big ? 'right-4 text-sm' : 'right-2.5 text-xs')}>
+          {unit}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** How the macros split the day's energy, and whether they add up to the
+ *  calories — the maths a coach would otherwise do on the side. */
+function MacroSplit({ t, range, onUseKcal }: { t: TargetRow; range: boolean; onUseKcal: (kcal: string) => void }) {
+  const p = (mid(t.proteinMin, t.proteinMax) ?? 0) * KCAL_PER_G.protein;
+  const c = (mid(t.carbsMin, t.carbsMax) ?? 0) * KCAL_PER_G.carbs;
+  const f = (mid(t.fatMin, t.fatMax) ?? 0) * KCAL_PER_G.fat;
+  const total = p + c + f;
+  if (total <= 0) return null;
+
+  const kcal = mid(t.kcalMin, t.kcalMax);
+  const fromMacros = Math.round(total / 10) * 10;
+  const pct = (v: number) => Math.round((v / total) * 100);
+  const fits = kcal != null && kcal > 0 && Math.abs(kcal - total) / kcal <= 0.08;
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
+      <div
+        role="img"
+        aria-label={`Reparto de calorías: ${pct(p)} % proteína, ${pct(c)} % carbohidratos, ${pct(f)} % grasa`}
+        className="flex h-2 gap-0.5 overflow-hidden rounded-full"
+      >
+        <span className="bg-protein" style={{ width: `${(p / total) * 100}%` }} />
+        <span className="bg-carbs" style={{ width: `${(c / total) * 100}%` }} />
+        <span className="bg-fat" style={{ width: `${(f / total) * 100}%` }} />
+      </div>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+        <span className="tabular-nums">
+          <b className="font-semibold text-foreground">{pct(p)}%</b> prot.
+        </span>
+        <span className="tabular-nums">
+          <b className="font-semibold text-foreground">{pct(c)}%</b> carbos
+        </span>
+        <span className="tabular-nums">
+          <b className="font-semibold text-foreground">{pct(f)}%</b> grasa
+        </span>
+        <span className="ml-auto flex items-center gap-2">
+          {fits ? (
+            <span className="flex items-center gap-1 text-success">
+              <Check className="h-3.5 w-3.5" strokeWidth={2.5} /> Cuadra con las calorías
+            </span>
+          ) : (
+            <>
+              <span className={cn('tabular-nums', kcal != null && kcal > 0 && 'text-warning')}>
+                Los macros suman ≈ {fromMacros.toLocaleString('en-US')} kcal
+              </span>
+              {!range && (
+                <button
+                  type="button"
+                  onClick={() => onUseKcal(String(fromMacros))}
+                  className="h-6 rounded-md bg-muted px-2 text-xs font-semibold text-foreground transition-colors hover:bg-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Usar
+                </button>
+              )}
+            </>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------- meals */
+
+function MealCard({
+  meal,
+  mi,
+  count,
+  dayCycling,
+  lens,
+  onPatch,
+  onPatchOption,
+  onFoodName,
+  onFoodDay,
+  onAddFood,
+  onRemoveFood,
+  onFocusFood,
+  onAddOption,
+  onRemoveOption,
+  onDuplicate,
+  onMove,
+  onRemove,
+}: {
+  meal: MealRow;
+  mi: number;
+  count: number;
+  dayCycling: boolean;
+  lens: DayType;
+  onPatch: (p: Partial<MealRow>) => void;
+  onPatchOption: (oi: number, p: Partial<OptionRow>) => void;
+  onFoodName: (oi: number, fi: number, v: string) => void;
+  onFoodDay: (oi: number, fi: number, v: DayType) => void;
+  onAddFood: (oi: number, at: number) => void;
+  onRemoveFood: (oi: number, fi: number) => void;
+  onFocusFood: (oi: number, fi: number) => void;
+  onAddOption: () => void;
+  onRemoveOption: (oi: number) => void;
+  onDuplicate: () => void;
+  onMove: (dir: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  const typeLabel = mealTypeLabel(meal.mealType);
+  const title = meal.label.trim() || typeLabel;
+  const Icon = MEAL_ICON[meal.mealType];
+  const noteRef = useRef<HTMLInputElement>(null);
+  const focusNoteNext = useRef(false);
+  const showNote = meal.advOpen || meal.notes.trim() !== '';
+  /** The lens is on a day this meal doesn't appear on. */
+  const off = dayCycling && lens !== 'both' && meal.appliesTo !== 'both' && meal.appliesTo !== lens;
+  const applies = DAY_META[meal.appliesTo];
+  const AppliesIcon = applies.icon;
+
+  return (
+    <article
+      aria-label={`Comida ${mi + 1}: ${title}`}
+      className={cn('rounded-xl border border-border bg-card p-3 transition-opacity sm:p-4', off && 'opacity-40')}
+    >
+      <div className="flex items-center gap-2">
+        <Select value={meal.mealType} onValueChange={(v) => onPatch({ mealType: v as PlanMealType })}>
+          <Tip label={`Tipo: ${typeLabel}`}>
+            <SelectTrigger
+              hideChevron
+              aria-label={`Tipo de comida: ${typeLabel}`}
+              className="h-10 w-10 flex-none justify-center rounded-lg border-transparent bg-muted p-0 hover:border-border-strong"
+            >
+              <Icon className="h-[18px] w-[18px]" />
+            </SelectTrigger>
+          </Tip>
+          <SelectContent>
+            {MEAL_TYPES.map((m) => {
+              const MIcon = MEAL_ICON[m.value];
+              return (
+                <SelectItem key={m.value} value={m.value}>
+                  <MIcon className="text-muted-foreground" />
+                  {m.label}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+        <input
+          aria-label={`Nombre de la comida ${mi + 1}`}
+          value={meal.label}
+          placeholder={typeLabel}
+          onChange={(e) => onPatch({ label: e.target.value })}
+          className="inline-input h-10 flex-1 text-base font-semibold placeholder:text-foreground/80"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={`Más acciones de ${title}`}>
+              <Ellipsis />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            onCloseAutoFocus={(e) => {
+              if (!focusNoteNext.current) return;
+              focusNoteNext.current = false;
+              e.preventDefault();
+              noteRef.current?.focus();
+            }}
+          >
+            <DropdownMenuCheckboxItem checked={meal.isOptional} onCheckedChange={(v) => onPatch({ isOptional: !!v })}>
+              Opcional (puede saltarla)
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                focusNoteNext.current = true;
+                onPatch({ advOpen: true });
+              }}
+            >
+              <StickyNote />
+              {showNote ? 'Editar nota' : 'Añadir nota'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onDuplicate}>
+              <CopyPlus />
+              Duplicar
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={mi === 0} onSelect={() => onMove(-1)}>
+              <ArrowUp />
+              Subir
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={mi === count - 1} onSelect={() => onMove(1)}>
+              <ArrowDown />
+              Bajar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem destructive disabled={count <= 1} onSelect={onRemove}>
+              <Trash2 />
+              Eliminar comida
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* What's set on the meal, as chips you can change in place. */}
+      <div className="mt-2 flex flex-wrap items-center gap-2 sm:pl-12">
+        <label
+          className={cn(
+            'inline-flex h-8 cursor-text items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring',
+            meal.timeHint.trim() ? 'border-border bg-field text-foreground' : 'border-dashed border-border-strong text-faint hover:text-foreground',
+          )}
+        >
+          <Clock3 className="h-3.5 w-3.5 flex-none" />
+          <span className="sr-only">Horario</span>
+          <input
+            value={meal.timeHint}
+            onChange={(e) => onPatch({ timeHint: e.target.value })}
+            placeholder="Añadir hora"
+            size={Math.max(10, meal.timeHint.length + 1)}
+            className="min-w-0 bg-transparent outline-none placeholder:text-faint"
+          />
+        </label>
+        {dayCycling && (
+          <Select value={meal.appliesTo} onValueChange={(v) => onPatch({ appliesTo: v as DayType })}>
+            <SelectTrigger
+              aria-label={`Días en que aparece: ${applies.label}`}
+              className={cn('h-8 w-auto gap-1.5 rounded-full px-3 text-[13px] font-medium', applies.chip)}
+            >
+              <AppliesIcon className="h-3.5 w-3.5" />
+              <span>{applies.label}</span>
+            </SelectTrigger>
+            <SelectContent>
+              {APPLIES_TO.map((a) => {
+                const AIcon = DAY_META[a.value].icon;
+                return (
+                  <SelectItem key={a.value} value={a.value}>
+                    <AIcon className={DAY_META[a.value].tone} />
+                    {a.label}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        )}
+        {meal.isOptional && (
+          <span className="inline-flex h-8 items-center gap-1 rounded-full bg-muted pl-3 pr-1 text-[13px] font-medium text-muted-foreground">
+            Opcional
+            <button
+              type="button"
+              onClick={() => onPatch({ isOptional: false })}
+              aria-label="Quitar «opcional»"
+              className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-border hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        )}
+      </div>
+
+      {showNote && (
+        <div className="mt-2 flex items-center gap-1.5 sm:pl-12">
+          <StickyNote className="h-4 w-4 flex-none text-faint" />
+          <input
+            ref={noteRef}
+            aria-label="Nota de la comida"
+            value={meal.notes}
+            onChange={(e) => onPatch({ notes: e.target.value })}
+            placeholder="Nota para el cliente, ej. en descanso cámbiala por un batido"
+            className="inline-input h-8 flex-1 text-[13px]"
+          />
+          <button
+            type="button"
+            onClick={() => onPatch({ notes: '', advOpen: false })}
+            aria-label="Quitar nota"
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-faint hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Options — the rotation — side by side. */}
+      <div className="mt-3 grid gap-2.5 [grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr))]">
+        {meal.options.map((opt, oi) => (
+          <div key={oi} className="flex min-w-0 flex-col rounded-lg border border-border bg-background/60 p-1.5">
+            <div className="flex items-center gap-1">
+              <input
+                aria-label={`Nombre de la opción ${oi + 1}`}
+                value={opt.label}
+                placeholder={`Opción ${oi + 1}`}
+                onChange={(e) => onPatchOption(oi, { label: e.target.value })}
+                className="inline-input h-8 flex-1 text-[13px] font-semibold text-muted-foreground focus-visible:text-foreground"
+              />
+              {meal.options.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveOption(oi)}
+                  aria-label={`Quitar ${opt.label.trim() || `opción ${oi + 1}`}`}
+                  className="flex h-8 w-8 flex-none items-center justify-center rounded-md text-faint hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+            <ul className="flex flex-col">
+              {opt.foods.map((food, fi) => (
+                <FoodLine
+                  key={fi}
+                  id={`${mi}-${oi}-${fi}`}
+                  food={food}
+                  dayCycling={dayCycling}
+                  dim={dayCycling && lens !== 'both' && food.dayType !== 'both' && food.dayType !== lens}
+                  canRemove={opt.foods.length > 1 || food.name.trim() !== ''}
+                  onName={(v) => onFoodName(oi, fi, v)}
+                  onDay={(v) => onFoodDay(oi, fi, v)}
+                  onEnter={() => onAddFood(oi, fi + 1)}
+                  onRemove={() => onRemoveFood(oi, fi)}
+                  onBackspaceEmpty={() => {
+                    if (opt.foods.length <= 1) return;
+                    onRemoveFood(oi, fi);
+                    onFocusFood(oi, Math.max(0, fi - 1));
+                  }}
+                />
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => onAddFood(oi, opt.foods.length)}
+              className="mt-0.5 flex h-8 w-fit items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Plus className="h-3.5 w-3.5" /> Alimento
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={onAddOption}
+          className="flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg border border-dashed border-border-strong sm:min-h-[96px] text-[13px] font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Plus className="h-4 w-4" /> Otra opción
+        </button>
+      </div>
+    </article>
+  );
+}
+
+/** One food: its name, and — when days differ — which days it's on.
+ *  Enter adds the next food; Backspace on an empty one removes it. */
+function FoodLine({
+  id,
+  food,
+  dayCycling,
+  dim,
+  canRemove,
+  onName,
+  onDay,
+  onEnter,
+  onRemove,
+  onBackspaceEmpty,
+}: {
+  id: string;
+  food: FoodRow;
+  dayCycling: boolean;
+  dim: boolean;
+  canRemove: boolean;
+  onName: (v: string) => void;
+  onDay: (v: DayType) => void;
+  onEnter: () => void;
+  onRemove: () => void;
+  onBackspaceEmpty: () => void;
+}) {
+  const meta = DAY_META[food.dayType];
+  const DayIcon = meta.icon;
+
+  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      if (food.name.trim()) onEnter();
+    } else if (e.key === 'Backspace' && food.name === '') {
+      e.preventDefault();
+      onBackspaceEmpty();
+    }
+  };
+
+  return (
+    <li className={cn('group flex items-center gap-1 rounded-md transition-opacity', dim && 'opacity-35')}>
+      <span aria-hidden="true" className="ml-2 h-1.5 w-1.5 flex-none rounded-full bg-border-strong" />
+      <input
+        data-food={id}
+        aria-label="Alimento"
+        value={food.name}
+        placeholder="Escribe un alimento"
+        onChange={(e) => onName(e.target.value)}
+        onKeyDown={onKeyDown}
+        enterKeyHint="next"
+        className="inline-input h-8 flex-1 text-sm"
+      />
+      {dayCycling && (
+        <Select value={food.dayType} onValueChange={(v) => onDay(v as DayType)}>
+          <Tip label={food.dayType === 'both' ? 'Ambos días · cambiar' : meta.label}>
+            <SelectTrigger
+              hideChevron
+              aria-label={`Días de ${food.name.trim() || 'este alimento'}: ${meta.label}`}
+              className={cn(
+                'h-7 w-7 flex-none justify-center rounded-md border-transparent bg-transparent p-0',
+                food.dayType === 'both' ? 'text-faint hover:text-foreground' : cn(meta.tone, 'bg-muted'),
+              )}
+            >
+              <DayIcon className="h-4 w-4" />
+            </SelectTrigger>
+          </Tip>
+          <SelectContent align="end">
+            {FOOD_DAYS.map((d) => {
+              const DIcon = DAY_META[d.value].icon;
+              return (
+                <SelectItem key={d.value} value={d.value}>
+                  <DIcon className={DAY_META[d.value].tone} />
+                  {DAY_META[d.value].label}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      )}
+      {canRemove && (
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Quitar ${food.name.trim() || 'alimento'}`}
+          className="flex h-7 w-7 flex-none items-center justify-center rounded-md text-faint transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </li>
   );
 }

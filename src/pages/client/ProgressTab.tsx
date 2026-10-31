@@ -43,11 +43,11 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
           <div className="mt-4 flex gap-4 border-t border-border pt-3.5">
             <div>
               <div className="text-[11.5px] font-semibold text-faint">Total registrado</div>
-              <div className="font-heading text-lg font-bold">{total} entrenos</div>
+              <div className="display text-[22px]">{total} entrenos</div>
             </div>
             <div>
               <div className="text-[11.5px] font-semibold text-faint">Duración media</div>
-              <div className="font-heading text-lg font-bold">{avg} min</div>
+              <div className="display text-[22px]">{avg} min</div>
             </div>
           </div>
         </CardContent>

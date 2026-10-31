@@ -63,7 +63,7 @@ export function AiResultPanel({
   return (
     <section
       aria-labelledby="ai-result-title"
-      className="border border-l-[3px] border-border border-l-primary bg-card motion-safe:animate-fade-up"
+      className="rounded-xl border border-l-[3px] border-border border-l-primary bg-card motion-safe:animate-fade-up"
     >
       <div className="px-5 py-4">
         {/* Title row: collapse/close stay top-right at every width. Collapsed,
@@ -73,10 +73,10 @@ export function AiResultPanel({
             id="ai-result-title"
             ref={titleRef}
             tabIndex={-1}
-            className="flex items-center gap-2 font-heading text-[20px] focus:outline-none"
+            className="flex items-center gap-2 text-lg font-semibold focus:outline-none"
           >
             <Sparkles className="h-4 w-4 flex-none text-primary" strokeWidth={2.25} aria-hidden="true" />
-            {result.kind === 'new' ? 'Borrador generado' : 'Cambios aplicados'}
+            {result.kind === 'new' ? 'Borrador de la IA' : 'Cambios de la IA'}
           </h2>
           {!open && (
             <p className="text-[13px] text-muted-foreground">
@@ -143,7 +143,7 @@ export function AiResultPanel({
           {/* What changed (edits only) */}
           {changes && (
             <div>
-              <h3 className="mb-2 font-heading text-[15px]">Qué cambió</h3>
+              <h3 className="mb-2 text-sm font-semibold">Qué cambió</h3>
               {changeCount === 0 ? (
                 <p className="text-[13px] text-muted-foreground">Los ejercicios y la periodización quedaron igual.</p>
               ) : (
@@ -154,7 +154,7 @@ export function AiResultPanel({
 
           {/* Every day at a glance */}
           <div>
-            <h3 className="mb-2 font-heading text-[15px]">{result.kind === 'new' ? 'Los días' : 'Así queda cada día'}</h3>
+            <h3 className="mb-2 text-sm font-semibold">{result.kind === 'new' ? 'Los días' : 'Así queda cada día'}</h3>
             <ol className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
               {days.map((d, i) => {
                 const rows = d.exercises.filter((x) => x.name.trim());
@@ -162,7 +162,7 @@ export function AiResultPanel({
                 return (
                   <li key={i} className="flex flex-col border border-border bg-background p-3.5">
                     <div className="flex items-start gap-3">
-                      <span aria-hidden="true" className="font-poster text-[44px] leading-[0.8] text-primary">
+                      <span aria-hidden="true" className="display text-[40px] leading-[0.8] text-muted-foreground">
                         {i + 1}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -186,7 +186,7 @@ export function AiResultPanel({
                             {x.superset ? (
                               <span
                                 title={`Superserie ${x.superset}: se hace seguida de los otros ejercicios ${x.superset}`}
-                                className="mt-px grid h-5 w-5 flex-none place-items-center bg-secondary/15 text-[10.5px] font-extrabold text-secondary"
+                                className="mt-px grid h-5 w-5 flex-none place-items-center rounded bg-secondary/15 text-[11px] font-bold text-secondary"
                               >
                                 <span className="sr-only">Superserie </span>
                                 {x.superset}
@@ -197,7 +197,7 @@ export function AiResultPanel({
                             <span className="min-w-0 flex-1 text-[13px] leading-snug">{x.name.trim()}</span>
                             <span className="flex-none text-right">
                               <span className="block text-[13px] font-bold tabular-nums">{rxText(x)}</span>
-                              {intensity && <span className="block text-[11.5px] text-faint">{intensity}</span>}
+                              {intensity && <span className="block text-xs text-faint">{intensity}</span>}
                             </span>
                           </li>
                         );
@@ -256,7 +256,7 @@ function Fact({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col-reverse">
       <dt className="text-[12px] text-muted-foreground">{label}</dt>
-      <dd className="font-poster text-[34px] leading-none tabular-nums">{value}</dd>
+      <dd className="display text-[32px] tabular-nums">{value}</dd>
     </div>
   );
 }

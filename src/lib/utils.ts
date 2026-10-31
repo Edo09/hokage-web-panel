@@ -127,3 +127,14 @@ export const GOAL_LABELS: Record<ProfileGoal, string> = {
 };
 
 export const goalLabel = (g: ProfileGoal | null): string | null => (g ? GOAL_LABELS[g] : null);
+
+/** Case- and accent-insensitive search over a few fields ("jose" finds "José"). */
+export function matchesQuery(query: string, ...fields: (string | null | undefined)[]): boolean {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+  const q = norm(query.trim());
+  return !q || fields.some((f) => f != null && norm(f).includes(q));
+}

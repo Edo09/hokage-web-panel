@@ -1,7 +1,7 @@
 /**
- * Program builder model — shared by the workspace builder (ProgramWorkspace)
- * and the deprecated wizard (LegacyProgramBuilder). Row models are all
- * strings while editing; they're parsed and validated at save time.
+ * Program builder model — the workspace builder (ProgramWorkspace), its state
+ * hook and the AI adapter share it. Row models are all strings while editing;
+ * they're parsed and validated at save time.
  */
 import type { LoadQualitative, ProgramStatus, ProgramWithDetail, WeekOverride } from '@/types';
 import type { ProgramDayInput, SaveProgramInput } from '@/services/programs';

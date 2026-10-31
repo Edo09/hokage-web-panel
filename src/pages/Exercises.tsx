@@ -24,6 +24,7 @@ import { qk } from '@/lib/queryClient';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { InfoTip } from '@/components/ui/info-tip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -110,9 +111,9 @@ export default function Exercises() {
         <button
           type="button"
           onClick={() => open(null)}
-          className="flex w-fit items-center gap-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="-ml-1 flex w-fit items-center gap-1 rounded-md px-1 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
+          <ChevronLeft className="h-4 w-4" strokeWidth={2} />
           Todos los grupos
         </button>
       )}
@@ -120,25 +121,28 @@ export default function Exercises() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 max-w-[640px]">
           {inGroup ? (
-            <h2 className="font-heading text-[22px] font-bold leading-tight poster:text-[30px] poster:leading-none">
+            <h2 className="display text-[28px]">
               {group?.label ?? 'Sin grupo'}
             </h2>
           ) : (
-            <p className="text-[13px] text-muted-foreground">
-              Explora el catálogo por grupo muscular. Editar un ejercicio actualiza su nombre, demo e
-              instrucciones en cada rutina y programa asignado.
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              Tu catálogo, por grupo muscular
+              <InfoTip label="Qué pasa al editar un ejercicio">
+                Editar un ejercicio cambia su nombre, demo e instrucciones en todas las rutinas y programas donde aparece.
+              </InfoTip>
             </p>
           )}
         </div>
-        <Button className="flex-none" onClick={() => setEditing('new')}>
-          <Plus className="h-3.5 w-3.5" strokeWidth={2.5} /> Nuevo ejercicio
+        <Button className="flex-none" onClick={() => setEditing('new')} aria-label="Nuevo ejercicio">
+          <Plus strokeWidth={2.5} />
+          <span className="hidden sm:inline">Nuevo ejercicio</span>
         </Button>
       </div>
 
       {isError ? (
         <Card className="p-6 text-center text-[13px] text-muted-foreground">
           No se pudo cargar el catálogo.{' '}
-          <button className="font-semibold text-primary" onClick={() => void refetch()}>
+          <button className="font-semibold text-foreground underline underline-offset-4" onClick={() => void refetch()}>
             Reintentar
           </button>
         </Card>
@@ -179,12 +183,12 @@ export default function Exercises() {
                     className={cn(
                       'rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                       active
-                        ? 'border-primary bg-primary text-primary-foreground'
+                        ? 'border-foreground bg-foreground text-background'
                         : 'border-border text-muted-foreground hover:border-border-strong',
                     )}
                   >
                     {m ? MUSCLE_LABEL[m] : 'Todos'}{' '}
-                    <span className={active ? 'text-primary-foreground/80' : 'text-faint'}>{count}</span>
+                    <span className={active ? 'text-background/70' : 'text-faint'}>{count}</span>
                   </button>
                 );
               })}
@@ -273,7 +277,7 @@ function CategoryCard({
       <span className="min-w-0 flex-1">
         <span className="flex items-start justify-between gap-2">
           <span className="min-w-0">
-            <span className="block font-heading text-[16px] font-bold leading-tight poster:text-[20px] poster:leading-none">
+            <span className="display block text-[19px]">
               {label}
             </span>
             <span className="mt-1 block text-[12px] text-faint">

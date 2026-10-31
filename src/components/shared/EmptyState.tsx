@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+/** An empty or failed view: what's missing, in a line, and what to do next. */
 export function EmptyState({
   icon: Icon,
   title,
@@ -10,18 +11,20 @@ export function EmptyState({
 }: {
   icon: LucideIcon;
   title: string;
-  description: string;
+  description?: string;
   className?: string;
   children?: React.ReactNode;
 }) {
   return (
-    <div className={cn('flex flex-col items-center gap-3 px-5 py-14 text-center', className)}>
-      <span className="flex h-14 w-14 items-center justify-center rounded-full border-[1.5px] border-dashed border-border-strong text-faint">
-        <Icon className="h-5 w-5" strokeWidth={1.5} />
+    <div className={cn('flex flex-col items-center gap-3 px-5 py-12 text-center', className)}>
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <Icon className="h-5 w-5" strokeWidth={1.8} />
       </span>
-      <div className="text-sm font-semibold">{title}</div>
-      <p className="max-w-[300px] text-[12.5px] text-faint">{description}</p>
-      {children}
+      <div className="flex flex-col gap-1">
+        <div className="text-[15px] font-semibold">{title}</div>
+        {description && <p className="mx-auto max-w-[320px] text-[13px] text-muted-foreground">{description}</p>}
+      </div>
+      {children && <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{children}</div>}
     </div>
   );
 }

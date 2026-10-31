@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 const TONE: Record<AttentionTone, { tile: string; action: string }> = {
-  danger: { tile: 'bg-primary/15 text-primary', action: 'border-primary text-primary hover:bg-primary/10' },
-  warning: { tile: 'bg-warning/15 text-warning', action: 'border-warning text-warning hover:bg-warning/10' },
+  danger: { tile: 'bg-destructive/15 text-destructive', action: 'border-border-strong text-foreground hover:bg-muted' },
+  warning: { tile: 'bg-warning/15 text-warning', action: 'border-border-strong text-foreground hover:bg-muted' },
   info: { tile: 'bg-secondary/15 text-secondary', action: 'border-border-strong text-foreground hover:bg-muted' },
-  success: { tile: 'bg-success/15 text-success', action: 'border-success text-success hover:bg-success/10' },
+  success: { tile: 'bg-success/15 text-success', action: 'border-border-strong text-foreground hover:bg-muted' },
 };
 
 const nameOf = (c: ClientSummary) => c.display_name ?? c.email;
@@ -41,35 +41,35 @@ export function AttentionList({ items, loading }: { items: AttentionItem[] | nul
         ) : (
           <>
             {shown.map((it, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5">
+              <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5">
                 <span
                   aria-hidden="true"
-                  className={cn('flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[12.5px] font-extrabold', TONE[it.tone].tile)}
+                  className={cn('flex h-10 w-10 flex-none items-center justify-center rounded-full text-[13px] font-bold', TONE[it.tone].tile)}
                 >
                   {initials(nameOf(it.client))}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-bold">
-                    <Link to={`/clients/${it.client.id}`} className="hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <div className="truncate text-sm font-semibold">
+                    <Link to={`/clients/${it.client.id}`} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       {nameOf(it.client)}
                     </Link>{' '}
                     · {it.title}
                   </div>
-                  <div className="truncate text-[12px] text-faint">{it.detail}</div>
+                  <div className="truncate text-[13px] text-muted-foreground">{it.detail}</div>
                 </div>
                 {it.action.external ? (
                   <a
                     href={it.action.href}
                     target="_blank"
                     rel="noreferrer"
-                    className={cn('flex h-9 flex-none items-center rounded-[10px] border px-3 text-[11.5px] font-extrabold uppercase tracking-[0.08em] transition-colors', TONE[it.tone].action)}
+                    className={cn('flex h-9 flex-none items-center rounded-lg border px-3 text-[13px] font-semibold transition-colors', TONE[it.tone].action)}
                   >
                     {it.action.label}
                   </a>
                 ) : (
                   <Link
                     to={it.action.href}
-                    className={cn('flex h-9 flex-none items-center rounded-[10px] border px-3 text-[11.5px] font-extrabold uppercase tracking-[0.08em] transition-colors', TONE[it.tone].action)}
+                    className={cn('flex h-9 flex-none items-center rounded-lg border px-3 text-[13px] font-semibold transition-colors', TONE[it.tone].action)}
                   >
                     {it.action.label}
                   </Link>
@@ -108,8 +108,8 @@ export function ConsistencyGrid({
   return (
     <Card className="flex flex-col">
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
-        <CardTitle>Constancia · 14 días</CardTitle>
-        <span className="text-xs text-faint">cada cuadro es un día</span>
+        <CardTitle>Constancia, últimos 14 días</CardTitle>
+        <span className="text-xs text-faint">un cuadro por día</span>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-2">
         {loading || !pulse ? (
@@ -135,7 +135,7 @@ export function ConsistencyGrid({
                       key={d}
                       title={`${d}${active.has(d) ? ' · entrenó' : ''}`}
                       aria-label={active.has(d) ? `${d}: entrenó` : `${d}: sin sesión`}
-                      className={cn('h-5', active.has(d) ? 'bg-primary' : 'bg-muted', d === today && 'outline outline-1 outline-offset-1 outline-border-strong')}
+                      className={cn('h-5 rounded-[3px]', active.has(d) ? 'bg-success' : 'bg-muted', d === today && 'outline outline-1 outline-offset-1 outline-border-strong')}
                     />
                   ))}
                   <span role="cell" className="text-right text-[11.5px] font-bold tabular-nums">
@@ -146,13 +146,13 @@ export function ConsistencyGrid({
             </div>
             <div className="mt-auto flex items-center gap-4 pt-2 text-[11.5px] text-muted-foreground">
               <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 bg-primary" /> Entrenó
+                <span className="h-3 w-3 rounded-[3px] bg-success" /> Entrenó
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="h-3 w-3 bg-muted" /> Sin sesión
+                <span className="h-3 w-3 rounded-[3px] bg-muted" /> Sin sesión
               </span>
-              <Link to="/clients" className="ml-auto font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
-                Todos los clientes →
+              <Link to="/clients" className="ml-auto text-[13px] font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
+                Todos los clientes
               </Link>
             </div>
           </>

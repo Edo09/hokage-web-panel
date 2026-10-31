@@ -24,7 +24,7 @@ import {
 const TONE_CLASS = {
   normal: 'text-foreground',
   warning: 'text-warning',
-  danger: 'text-primary',
+  danger: 'text-destructive',
   muted: 'text-faint',
 } as const;
 

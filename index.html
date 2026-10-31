@@ -3,23 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/jpeg" href="/logo.jpg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f141c" />
     <title>The Hokage Coaching — Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Archivo: the UI face (Anton, the display face, is bundled — see main.tsx). -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@87.5..100,400..800&display=swap"
       rel="stylesheet"
     />
     <script>
-      // Apply persisted theme + design before first paint (dark / poster are
-      // the defaults; 'legacy' is the deprecated original look).
+      // Apply the persisted theme before first paint (dark is the default).
       try {
         if (localStorage.getItem('hokage:theme') === 'light') {
           document.documentElement.classList.remove('dark');
-        }
-        if (localStorage.getItem('hokage:design') === 'legacy') {
-          document.documentElement.dataset.design = 'legacy';
         }
       } catch (e) {}
     </script>

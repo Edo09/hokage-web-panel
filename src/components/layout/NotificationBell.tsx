@@ -192,17 +192,16 @@ export function NotificationBell() {
         aria-label={unread > 0 ? `Avisos: ${unread} sin leer` : 'Avisos'}
         aria-expanded={open}
         aria-haspopup="dialog"
-        title="Avisos"
         className={cn(
-          'relative flex h-9 w-9 items-center justify-center rounded-[10px] border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          open && 'border-primary text-primary',
+          'relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          open && 'bg-muted text-foreground',
         )}
       >
-        <Bell className="h-4 w-4" strokeWidth={1.8} />
+        <Bell className="h-[18px] w-[18px]" strokeWidth={1.8} />
         {unread > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -right-1.5 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10.5px] font-bold leading-none text-primary-foreground"
+            className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold leading-none text-primary-foreground ring-2 ring-background"
           >
             {unread > 99 ? '99+' : unread}
           </span>
@@ -217,14 +216,14 @@ export function NotificationBell() {
             role="dialog"
             aria-label="Avisos"
             style={{ top: anchor.top, right: anchor.right, width: PANEL_WIDTH, maxWidth: `calc(100vw - ${2 * GUTTER}px)` }}
-            className="fixed z-[70] flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-foreground shadow-xl"
+            className="fixed z-[70] flex flex-col overflow-hidden rounded-xl border border-border bg-popover text-foreground shadow-pop"
           >
             <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-              <span className="text-[13.5px] font-bold">Avisos</span>
+              <span className="text-[15px] font-semibold">Avisos</span>
               {unread > 0 && (
                 <button
                   onClick={() => markAll.mutate()}
-                  className="text-[12px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="text-[13px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Marcar todo como leído
                 </button>

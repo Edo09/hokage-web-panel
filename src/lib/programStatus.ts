@@ -7,9 +7,10 @@ export const STATUS_LABEL: Record<ProgramStatus, string> = {
   archived: 'Archivado',
 };
 
-/** Badge tint per status — active pops, completed reads "done", archived recedes. */
+/** Badge tint per status — active reads "running" (green), completed "done"
+ *  (blue), archived recedes. Red stays for actions. */
 export const STATUS_BADGE: Record<ProgramStatus, string> = {
-  active: 'bg-primary/10 text-primary dark:bg-primary/15',
-  completed: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+  active: 'bg-success/15 text-success',
+  completed: 'bg-secondary/15 text-secondary',
   archived: 'bg-muted text-muted-foreground',
 };

@@ -16,7 +16,7 @@ import { ClientPulse, CoachNotes } from './ClientPulse';
 const TONE_CLASS = {
   normal: 'text-foreground',
   warning: 'text-warning',
-  danger: 'text-primary',
+  danger: 'text-destructive',
   muted: 'text-faint',
 } as const;
 
@@ -24,7 +24,7 @@ function Metric({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl bg-muted px-3.5 py-3">
       <div className="text-[11.5px] font-semibold text-faint">{label}</div>
-      <div className="mt-0.5 font-heading text-xl font-bold">{value}</div>
+      <div className="display mt-1 text-[22px]">{value}</div>
     </div>
   );
 }
@@ -89,7 +89,7 @@ function TrainingPlanCard({ client, onChanged }: { client: ClientWithMeta; onCha
     <Card className="md:col-span-2">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Dumbbell className="h-4 w-4 text-primary" strokeWidth={2.25} />
+          <Dumbbell className="h-4 w-4 text-muted-foreground" strokeWidth={2.25} />
           Plan de entrenamiento
         </CardTitle>
       </CardHeader>
@@ -141,7 +141,7 @@ function TrainingPlanCard({ client, onChanged }: { client: ClientWithMeta; onCha
                   className={cn(
                     'h-9 min-w-[52px] rounded-lg border px-3 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                     on
-                      ? 'border-primary bg-primary text-primary-foreground'
+                      ? 'border-foreground bg-foreground text-background'
                       : 'border-border bg-card text-muted-foreground hover:border-primary/50',
                   )}
                 >
@@ -215,7 +215,7 @@ export function OverviewTab({
           </CardHeader>
           <CardContent className="flex flex-1 flex-col">
             <div className="flex items-baseline gap-1.5">
-              <span className="font-heading text-[34px] font-bold text-primary">
+              <span className="display text-[34px]">
                 {(client.calorie_goal ?? 0).toLocaleString('en-US')}
               </span>
               <span className="text-[13px] text-faint">kcal / día</span>

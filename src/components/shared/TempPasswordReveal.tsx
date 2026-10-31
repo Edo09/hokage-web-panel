@@ -40,11 +40,11 @@ export function TempPasswordReveal({
         <code className="flex-1 select-all rounded-lg border border-border bg-muted px-3 py-2.5 font-mono text-[15px] font-semibold tracking-wide">
           {password}
         </code>
-        <Button variant="outline" size="sm" onClick={() => void copyPassword()} aria-label="Copiar contraseña">
-          <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+        <Button variant="outline" size="icon" onClick={() => void copyPassword()} aria-label="Copiar contraseña">
+          <Copy />
         </Button>
       </div>
-      <p className="max-w-[300px] text-[11.5px] text-faint">Se muestra una sola vez — cópiala antes de cerrar.</p>
+      <p className="max-w-[300px] text-xs text-faint">Solo se muestra esta vez: cópiala antes de cerrar.</p>
       <Button className="mt-1 px-6" onClick={onDone}>
         Listo
       </Button>

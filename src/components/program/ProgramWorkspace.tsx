@@ -23,7 +23,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DiscardChangesDialog } from '@/components/program/DiscardChangesDialog';
+import { DiscardChangesDialog } from '@/components/shared/DiscardChangesDialog';
+import { FocusEditor } from '@/components/shared/FocusEditor';
+import { InfoTip } from '@/components/ui/info-tip';
+import { Tip } from '@/components/ui/tooltip';
 import { MobileProgramPreview } from '@/components/program/MobileProgramPreview';
 import { AiProgramDialog } from '@/components/program/AiProgramDialog';
 import { AiResultPanel } from '@/components/program/AiResultPanel';
@@ -69,13 +72,13 @@ import {
  */
 
 const WEEKDAY_SHORT: Record<string, string> = {
-  monday: 'LUN',
-  tuesday: 'MAR',
-  wednesday: 'MIÉ',
-  thursday: 'JUE',
-  friday: 'VIE',
-  saturday: 'SÁB',
-  sunday: 'DOM',
+  monday: 'Lun',
+  tuesday: 'Mar',
+  wednesday: 'Mié',
+  thursday: 'Jue',
+  friday: 'Vie',
+  saturday: 'Sáb',
+  sunday: 'Dom',
 };
 
 // Drag payloads: a catalog exercise from the library, or a row being moved.
@@ -83,14 +86,17 @@ const DT_EXERCISE = 'application/x-hokage-exercise';
 const DT_ROW = 'application/x-hokage-row';
 
 const CELL =
-  'h-8 w-full min-w-0 rounded-[4px] border border-border bg-field px-1 text-center text-[13px] font-bold tabular-nums text-foreground placeholder:font-normal placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
+  'h-10 w-full min-w-0 rounded-md border border-border bg-field px-1 text-center text-[14px] font-semibold tabular-nums md:h-8 md:text-[13px] text-foreground placeholder:font-normal placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
   // No spinner arrows: Chrome reserves their width even when hidden, which
   // clipped two-digit values in the narrow cells.
   '[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none';
-const ROW_GRID = 'grid items-center gap-2 [grid-template-columns:16px_24px_minmax(180px,1fr)_52px_96px_90px_60px_60px_56px]';
-const CAPS = 'text-[10px] font-extrabold uppercase tracking-[0.12em] text-faint';
+// Phones: number, name and actions on one line, the numbers below with their
+// own labels. From md: one spreadsheet-like row under a header.
+const ROW_GRID =
+  'grid items-center gap-2 [grid-template-columns:24px_minmax(0,1fr)_auto] md:[grid-template-columns:16px_24px_minmax(180px,1fr)_52px_96px_90px_60px_60px_56px]';
+const CAPS = 'text-xs font-medium text-muted-foreground';
 const NATIVE_SELECT =
-  'h-8 rounded-[4px] border border-border bg-field px-2 text-[12.5px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  'h-8 rounded-lg border border-border bg-field px-2 text-[13px] text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** A copy of a row as a NEW row: without its DB id, so saving inserts it
  *  instead of stealing the original's identity (and its logged history). */
@@ -106,13 +112,10 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
   const b = useProgramBuilder(props);
   const [activeDay, setActiveDay] = useState(0);
   const [selWeek, setSelWeek] = useState(0);
-  // Open when something in it is set. «Solo semana actual» counts: it changes
-  // what the client can do, so it must not sit behind a closed panel.
-  const [detailsOpen, setDetailsOpen] = useState(
-    () =>
-      b.lockFutureWeeks ||
-      !!(props.initial?.progression_rule || props.initial?.tempo_default || props.initial?.description || props.initial?.notes),
-  );
+  // Starts closed: the weeks and days are the work. What's set inside still
+  // shows as chips next to the toggle (WorkspaceHeader), «Solo semana actual»
+  // included, so nothing that changes the client's app is hidden.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -195,23 +198,145 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
     setActiveDay(Math.max(0, dayIdx - 1));
   };
 
+  const kicker = b.isTemplate ? 'Programa · plantilla' : `Programa de ${b.firstName}`;
+  const title = b.isTemplate
+    ? b.initial
+      ? 'Editar plantilla'
+      : 'Nueva plantilla'
+    : b.initial
+      ? 'Editar programa'
+      : 'Nuevo programa';
+  const aiLabel = b.exCount > 0 ? 'Editar con IA' : 'Crear con IA';
+
   return (
-    <div className="flex animate-fade-up flex-col gap-4">
-      <WorkspaceHeader
-        b={b}
-        nameRef={nameRef}
-        detailsOpen={detailsOpen}
-        onToggleDetails={() => setDetailsOpen((v) => !v)}
-        onPreview={() => setPreviewOpen(true)}
-        onAi={() => setAiOpen(true)}
-        onCancel={cancel}
-        onSave={() => void submit()}
-      />
+    <FocusEditor
+      kicker={kicker}
+      title={title}
+      onClose={cancel}
+      actions={
+        <>
+          <Button variant="ghost" size="sm" onClick={() => setAiOpen(true)} disabled={!b.catalog?.length} aria-label={aiLabel} className="text-foreground">
+            <Sparkles className="!text-primary" strokeWidth={2.25} />
+            <span className="hidden sm:inline">{aiLabel}</span>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setPreviewOpen(true)} aria-label="Vista previa" className="text-foreground 2xl:hidden">
+            <Smartphone />
+            <span className="hidden sm:inline">Vista previa</span>
+          </Button>
+        </>
+      }
+      footer={
+        <>
+          <span className="hidden min-w-0 flex-1 truncate text-[13px] text-muted-foreground sm:block">{b.summaryText}</span>
+          <Button variant="ghost" onClick={cancel}>
+            Cancelar
+          </Button>
+          <Button onClick={() => void submit()} disabled={b.saving || b.catalog === null} className="flex-1 sm:flex-none">
+            {b.saveLabel}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <WorkspaceHeader b={b} nameRef={nameRef} detailsOpen={detailsOpen} onToggleDetails={() => setDetailsOpen((v) => !v)} />
+
+        {aiResult && (
+          <AiResultPanel
+            key={aiResultSeq}
+            result={aiResult}
+            editedSince={() => draftSignature(b.snapshot()) !== draftSignature(aiResult.after)}
+            onUndo={() => {
+              b.replaceDraft(aiResult.before);
+              setAiResult(null);
+            }}
+            onRefine={() => setAiOpen(true)}
+            onDismiss={() => setAiResult(null)}
+          />
+        )}
+
+        <PeriodizationStrip b={b} selWeek={selWeek} onSelect={setSelWeek} />
+
+        <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[260px_minmax(0,1fr)_340px]">
+          <ExerciseLibrary catalog={b.catalog} onAdd={(n) => addExercise(n)} />
+
+          <section aria-label="Días y ejercicios" className="flex min-w-0 flex-col gap-3">
+            <DayTabs
+              days={b.days}
+              active={dayIdx}
+              onSelect={setActiveDay}
+              onAdd={() => {
+                b.setDays((ds) => [...ds, emptyDay()]);
+                setActiveDay(b.days.length);
+              }}
+            />
+
+            <div className="flex flex-wrap items-end gap-2">
+              <Field id="pw-day-label" label={`Nombre del día ${dayIdx + 1}`} className="min-w-[200px] flex-1">
+                <Input
+                  id="pw-day-label"
+                  placeholder="Ej. Glúteos y femorales"
+                  value={day.label}
+                  onChange={(e) => b.updDay(dayIdx, { label: e.target.value })}
+                />
+              </Field>
+              <Field id="pw-day-weekday" label="Día de la semana">
+                <select
+                  id="pw-day-weekday"
+                  className={cn(NATIVE_SELECT, 'h-10 min-w-[150px]')}
+                  value={day.weekday}
+                  onChange={(e) => b.updDay(dayIdx, { weekday: e.target.value })}
+                >
+                  {WEEKDAYS.map((w) => (
+                    <option key={w.value || 'none'} value={w.value}>
+                      {w.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="flex gap-1">
+                <Tip label="Duplicar día">
+                  <Button variant="outline" size="icon" onClick={duplicateDay} aria-label={`Duplicar día ${dayIdx + 1}`}>
+                    <Copy />
+                  </Button>
+                </Tip>
+                <Tip label="Eliminar día">
+                  <Button variant="outline" size="icon" onClick={removeDay} disabled={b.days.length <= 1} aria-label={`Eliminar día ${dayIdx + 1}`}>
+                    <Trash2 />
+                  </Button>
+                </Tip>
+              </div>
+            </div>
+
+            <ExerciseTable
+              b={b}
+              day={day}
+              dayIdx={dayIdx}
+              week={week}
+              weekNumber={Math.min(selWeek, b.weeks.length - 1) + 1}
+              onDropAt={onDropAt}
+              onMove={moveRow}
+            />
+
+            <VolumeCard b={b} dayIdx={dayIdx} week={week} weekNumber={Math.min(selWeek, b.weeks.length - 1) + 1} />
+          </section>
+
+          <aside aria-label="Vista previa en la app" className="hidden 2xl:block">
+            <div className="sticky top-[88px] flex flex-col gap-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-semibold">Así lo ve el cliente</span>
+                <span className="flex items-center gap-1.5 text-xs text-faint">
+                  <span className="h-1.5 w-1.5 rounded-full bg-success" /> en vivo
+                </span>
+              </div>
+              <MobileProgramPreview program={b.preview} />
+            </div>
+          </aside>
+        </div>
+      </div>
 
       <DiscardChangesDialog
         open={confirmCancel}
         onOpenChange={setConfirmCancel}
-        isTemplate={b.isTemplate}
         editing={!!b.initial}
         onDiscard={() => {
           b.dropDraft();
@@ -228,116 +353,19 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
           setSelWeek(0);
           setAiResult(r);
           setAiResultSeq((n) => n + 1);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       />
 
-      {aiResult && (
-        <AiResultPanel
-          key={aiResultSeq}
-          result={aiResult}
-          editedSince={() => draftSignature(b.snapshot()) !== draftSignature(aiResult.after)}
-          onUndo={() => {
-            b.replaceDraft(aiResult.before);
-            setAiResult(null);
-          }}
-          onRefine={() => setAiOpen(true)}
-          onDismiss={() => setAiResult(null)}
-        />
-      )}
-
-      <PeriodizationStrip b={b} selWeek={selWeek} onSelect={setSelWeek} />
-
-      <div className="grid items-start gap-4 lg:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[260px_minmax(0,1fr)_340px]">
-        <ExerciseLibrary catalog={b.catalog} onAdd={(n) => addExercise(n)} />
-
-        <section aria-label="Días y ejercicios" className="flex min-w-0 flex-col gap-3">
-          <DayTabs days={b.days} active={dayIdx} onSelect={setActiveDay} onAdd={() => {
-            b.setDays((ds) => [...ds, emptyDay()]);
-            setActiveDay(b.days.length);
-          }} />
-
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="flex min-w-[220px] flex-1 flex-col gap-1">
-              <Label htmlFor="pw-day-label" className={CAPS}>
-                Nombre del día {dayIdx + 1}
-              </Label>
-              <Input
-                id="pw-day-label"
-                placeholder="Ej. Glúteos + femorales"
-                value={day.label}
-                onChange={(e) => b.updDay(dayIdx, { label: e.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="pw-day-weekday" className={CAPS}>
-                Día de la semana
-              </Label>
-              <select
-                id="pw-day-weekday"
-                className={cn(NATIVE_SELECT, 'h-9 min-w-[150px]')}
-                value={day.weekday}
-                onChange={(e) => b.updDay(dayIdx, { weekday: e.target.value })}
-              >
-                {WEEKDAYS.map((w) => (
-                  <option key={w.value || 'none'} value={w.value}>
-                    {w.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button variant="outline" onClick={duplicateDay}>
-              <Copy className="h-3.5 w-3.5" strokeWidth={2} /> Duplicar día
-            </Button>
-            <Button variant="outline" onClick={removeDay} disabled={b.days.length <= 1} aria-label={`Eliminar día ${dayIdx + 1}`}>
-              <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
-            </Button>
-          </div>
-
-          <ExerciseTable
-            b={b}
-            day={day}
-            dayIdx={dayIdx}
-            week={week}
-            weekNumber={Math.min(selWeek, b.weeks.length - 1) + 1}
-            onDropAt={onDropAt}
-            onMove={moveRow}
-          />
-
-          <VolumeCard b={b} dayIdx={dayIdx} week={week} weekNumber={Math.min(selWeek, b.weeks.length - 1) + 1} />
-        </section>
-
-        <aside aria-label="Vista previa en la app" className="hidden flex-col gap-2 2xl:flex">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-heading text-[18px]">Así lo ve el cliente</h2>
-            <span className="text-[11.5px] text-faint">en vivo</span>
-          </div>
-          <MobileProgramPreview program={b.preview} />
-        </aside>
-      </div>
-
-      {/* The header's actions again, so a long program can be saved without
-          scrolling back up. */}
-      <footer className="flex flex-wrap items-center justify-between gap-3 border border-border bg-card px-5 py-3">
-        <span className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{b.summaryText}</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" onClick={cancel}>
-            Cancelar
-          </Button>
-          <Button size="lg" onClick={() => void submit()} disabled={b.saving || b.catalog === null}>
-            {b.saveLabel}
-          </Button>
-        </div>
-      </footer>
-
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[95vh] overflow-y-auto sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
-            <DialogTitle>Vista previa · app del cliente</DialogTitle>
+            <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
           <MobileProgramPreview program={b.preview} fitToViewport />
         </DialogContent>
       </Dialog>
-    </div>
+    </FocusEditor>
   );
 }
 
@@ -348,170 +376,177 @@ function WorkspaceHeader({
   nameRef,
   detailsOpen,
   onToggleDetails,
-  onPreview,
-  onAi,
-  onCancel,
-  onSave,
 }: {
   b: ProgramBuilderState;
   nameRef: RefObject<HTMLInputElement>;
   detailsOpen: boolean;
   onToggleDetails: () => void;
-  onPreview: () => void;
-  onAi: () => void;
-  onCancel: () => void;
-  onSave: () => void;
 }) {
-  const kind = b.isTemplate
-    ? b.initial
-      ? 'Editar plantilla'
-      : 'Nueva plantilla'
-    : b.initial
-      ? `Editar programa · ${b.firstName}`
-      : `Nuevo programa · ${b.firstName}`;
+  // What's set behind a closed "Detalles", so nothing configured is invisible.
+  const chips = [
+    b.focus.trim(),
+    b.lockFutureWeeks && 'Solo semana actual',
+    b.progressionRule.trim() && 'Progresión',
+    b.tempoDefault.trim() && 'Tempo',
+    b.description.trim() && 'Descripción',
+    b.notes.trim() && 'Notas',
+  ].filter(Boolean) as string[];
 
   return (
-    <header className="relative overflow-hidden border border-border bg-gradient-to-b from-card to-background px-5 py-4">
-      <span aria-hidden="true" className="pointer-events-none absolute -top-16 right-44 h-[240px] w-[220px] -skew-x-[18deg] bg-primary/[0.07]" />
-      <div className="relative flex flex-wrap items-end gap-4">
-        <div className="min-w-[260px] flex-1">
-          <div className={CAPS}>{kind}</div>
-          <label htmlFor="pw-name" className="sr-only">
-            Nombre del programa
-          </label>
-          <input
-            id="pw-name"
-            ref={nameRef}
-            value={b.name}
-            onChange={(e) => b.setName(e.target.value)}
-            placeholder="NOMBRE DEL PROGRAMA"
-            autoFocus={!b.initial}
-            className="mt-1 w-full border-b-2 border-transparent bg-transparent font-poster text-[32px] uppercase leading-tight tracking-[0.01em] text-foreground placeholder:text-faint/60 focus:border-primary focus:outline-none"
-          />
-          <div className="mt-2 flex flex-wrap items-center gap-2.5">
-            <span aria-hidden="true" className="h-[3px] w-[22px] bg-primary" />
-            <span className="text-[11.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{b.summaryText}</span>
-            {b.draftSavedAt != null && (
-              <span className="flex items-center gap-1.5 text-[11.5px] text-success">
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                Borrador guardado en este navegador
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={onAi} disabled={!b.catalog?.length} className="border-primary/60 text-primary hover:bg-primary/10">
-            <Sparkles className="h-3.5 w-3.5" strokeWidth={2.25} /> {b.exCount > 0 ? 'Editar con IA' : 'Generar con IA'}
-          </Button>
-          <Button variant="outline" onClick={onToggleDetails} aria-expanded={detailsOpen}>
-            Detalles {detailsOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </Button>
-          <Button variant="outline" onClick={onPreview} className="2xl:hidden">
-            <Smartphone className="h-3.5 w-3.5" strokeWidth={2} /> Vista previa
-          </Button>
-          <Button variant="ghost" onClick={onCancel}>
-            Cancelar
-          </Button>
-          <Button size="lg" onClick={onSave} disabled={b.saving || b.catalog === null}>
-            {b.saveLabel}
-          </Button>
+    <header className="flex flex-col gap-3">
+      <div>
+        <label htmlFor="pw-name" className="sr-only">
+          Nombre del programa
+        </label>
+        <input
+          id="pw-name"
+          ref={nameRef}
+          value={b.name}
+          onChange={(e) => b.setName(e.target.value)}
+          placeholder="Nombre del programa"
+          autoFocus={!b.initial}
+          className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint/50 hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+          <span>{b.summaryText}</span>
+          {b.draftSavedAt != null && (
+            <span className="flex items-center gap-1.5 text-success">
+              <span className="h-1.5 w-1.5 rounded-full bg-success" />
+              Borrador guardado
+              <InfoTip label="Dónde se guarda el borrador">
+                Mientras editas se guarda en este navegador, por si cierras sin querer. Nada llega al cliente hasta que guardas.
+              </InfoTip>
+            </span>
+          )}
         </div>
       </div>
 
       {b.restored != null && !b.draftDismissed && (
-        <div className="relative mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 border border-secondary/30 bg-secondary/[0.07] px-3 py-2 text-[12.5px]">
-          <RotateCcw className="h-3.5 w-3.5 flex-none text-secondary" strokeWidth={2} />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-secondary/30 bg-secondary/10 px-3 py-2 text-[13px]">
+          <RotateCcw className="h-4 w-4 flex-none text-secondary" strokeWidth={2} />
           <span className="text-muted-foreground">
-            Recuperamos un borrador sin guardar de{' '}
-            <span className="font-semibold text-foreground">{draftAge(b.restored.savedAt)}</span>.
+            Borrador recuperado de <span className="font-semibold text-foreground">{draftAge(b.restored.savedAt)}</span>.
           </span>
-          <button
-            type="button"
-            onClick={b.discardDraft}
-            className="font-semibold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Descartar borrador
-          </button>
+          <Button variant="link" size="sm" onClick={b.discardDraft} className="h-auto text-[13px]">
+            Descartarlo
+          </Button>
         </div>
       )}
 
-      {detailsOpen && (
-        <div className="relative mt-4 grid gap-3 border-t border-border pt-4 md:grid-cols-2 xl:grid-cols-3">
-          <Field id="pw-focus" label="Enfoque">
-            <Input id="pw-focus" placeholder="Ej. Glúteos y piernas" value={b.focus} onChange={(e) => b.setFocus(e.target.value)} />
-          </Field>
-          <Field id="pw-prog" label="Regla de progresión">
-            <Input
-              id="pw-prog"
-              placeholder="Ej. Doble progresión: sube peso al llegar a 8 reps"
-              value={b.progressionRule}
-              onChange={(e) => b.setProgressionRule(e.target.value)}
-            />
-          </Field>
-          <Field id="pw-tempo" label="Tempo por defecto">
-            <Input
-              id="pw-tempo"
-              placeholder="Ej. Excéntrica 2-3 s / concéntrica explosiva"
-              value={b.tempoDefault}
-              onChange={(e) => b.setTempoDefault(e.target.value)}
-            />
-          </Field>
-          {!b.isTemplate && (
-            <>
-              <Field id="pw-start" label="Inicio">
-                <Input
-                  id="pw-start"
-                  type="date"
-                  // Guard past dates only when creating; editing a running
-                  // block must keep its original (possibly past) start.
-                  min={b.initial ? undefined : todayISO()}
-                  value={b.startDate}
-                  onChange={(e) => b.setStartDate(e.target.value)}
-                />
-              </Field>
-              <Field id="pw-status" label="Estado">
-                <select
-                  id="pw-status"
-                  className={cn(NATIVE_SELECT, 'h-9 w-full')}
-                  value={b.status}
-                  onChange={(e) => b.setStatus(e.target.value as ProgramStatus)}
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-            </>
-          )}
-          <Field id="pw-desc" label="Descripción">
-            <Input id="pw-desc" placeholder="Resumen breve del bloque…" value={b.description} onChange={(e) => b.setDescription(e.target.value)} />
-          </Field>
-          {/* A full row right under Inicio · Estado · Descripción (under
-              Descripción alone for a template). Templates carry it too: the
-              assign dialogs pre-set it from the template. */}
-          <LockFutureWeeksSwitch
-            id="pw-lock"
-            className="rounded-none bg-field md:col-span-2 xl:col-span-3"
-            checked={b.lockFutureWeeks}
-            onCheckedChange={b.setLockFutureWeeks}
-          />
-          <Field id="pw-notes" label="Notas del programa" className="md:col-span-2 xl:col-span-3">
-            <Textarea id="pw-notes" rows={2} placeholder="Ej. Cardio 20 min post-entreno" value={b.notes} onChange={(e) => b.setNotes(e.target.value)} />
-          </Field>
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleDetails}
+            aria-expanded={detailsOpen}
+            aria-controls="pw-details"
+            className="-ml-1 inline-flex h-8 items-center gap-1 rounded-md px-1 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform', !detailsOpen && '-rotate-90')} />
+            {b.isTemplate ? 'Enfoque, progresión y notas' : 'Fechas, enfoque y notas'}
+          </button>
+          {!detailsOpen &&
+            chips.map((c) => (
+              <span key={c} className="max-w-[220px] truncate rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                {c}
+              </span>
+            ))}
         </div>
-      )}
+
+        {detailsOpen && (
+          <div id="pw-details" className="mt-3 grid gap-4 rounded-xl border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-3">
+            {!b.isTemplate && (
+              <>
+                <Field id="pw-start" label="Empieza">
+                  <Input
+                    id="pw-start"
+                    type="date"
+                    // Guard past dates only when creating; editing a running
+                    // block must keep its original (possibly past) start.
+                    min={b.initial ? undefined : todayISO()}
+                    value={b.startDate}
+                    onChange={(e) => b.setStartDate(e.target.value)}
+                  />
+                </Field>
+                <Field id="pw-status" label="Estado">
+                  <select
+                    id="pw-status"
+                    className={cn(NATIVE_SELECT, 'h-10 w-full')}
+                    value={b.status}
+                    onChange={(e) => b.setStatus(e.target.value as ProgramStatus)}
+                  >
+                    {STATUSES.map((s) => (
+                      <option key={s.value} value={s.value}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </>
+            )}
+            <Field id="pw-focus" label="Enfoque">
+              <Input id="pw-focus" placeholder="Ej. Glúteos y piernas" value={b.focus} onChange={(e) => b.setFocus(e.target.value)} />
+            </Field>
+            <Field id="pw-prog" label="Progresión" tip="Cómo sube la carga semana a semana. El cliente la ve en la app.">
+              <Input
+                id="pw-prog"
+                placeholder="Ej. Sube peso al llegar a 8 reps"
+                value={b.progressionRule}
+                onChange={(e) => b.setProgressionRule(e.target.value)}
+              />
+            </Field>
+            <Field id="pw-tempo" label="Tempo por defecto" tip="El ritmo de cada repetición, para los ejercicios que no fijan el suyo.">
+              <Input
+                id="pw-tempo"
+                placeholder="Ej. Bajada 2–3 s, subida explosiva"
+                value={b.tempoDefault}
+                onChange={(e) => b.setTempoDefault(e.target.value)}
+              />
+            </Field>
+            <Field id="pw-desc" label="Descripción">
+              <Input id="pw-desc" placeholder="Resumen breve del bloque" value={b.description} onChange={(e) => b.setDescription(e.target.value)} />
+            </Field>
+            <Field id="pw-notes" label="Notas del programa" className="md:col-span-2 xl:col-span-3">
+              <Textarea id="pw-notes" rows={2} placeholder="Ej. Cardio 20 min después de entrenar" value={b.notes} onChange={(e) => b.setNotes(e.target.value)} />
+            </Field>
+            {/* Templates carry it too: the assign dialogs pre-set it from the template. */}
+            <LockFutureWeeksSwitch id="pw-lock" className="md:col-span-2 xl:col-span-3" checked={b.lockFutureWeeks} onCheckedChange={b.setLockFutureWeeks} />
+          </div>
+        )}
+      </div>
     </header>
   );
 }
 
-function Field({ id, label, className, children }: { id: string; label: string; className?: string; children: ReactNode }) {
+function Field({
+  id,
+  label,
+  tip,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  tip?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div className={cn('flex flex-col gap-1', className)}>
-      <Label htmlFor={id} className={CAPS}>
-        {label}
-      </Label>
+    <div className={cn('flex flex-col gap-1.5', className)}>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={id}>{label}</Label>
+        {tip && <InfoTip label={`Qué es «${label}»`}>{tip}</InfoTip>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** One number in an exercise row: labelled on phones (no header row there). */
+function Cell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 md:block">
+      <span className="text-xs text-faint md:hidden">{label}</span>
       {children}
     </div>
   );
@@ -544,13 +579,16 @@ function PeriodizationStrip({
   );
 
   return (
-    <section aria-label="Periodización" className="border border-border bg-card p-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className="font-heading text-[20px]">Periodización</h2>
-          <p className="text-[12px] text-faint">
-            Carga y RIR de cada semana. El RIR de la semana se aplica a los ejercicios que no fijan el suyo.
-          </p>
+    <section aria-labelledby="pw-weeks" className="rounded-xl border border-border bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <h2 id="pw-weeks" className="text-base font-semibold">
+            Semanas
+          </h2>
+          <InfoTip label="Qué se ajusta por semana">
+            La carga (% de su máximo) y el RIR de cada semana. El RIR de la semana se usa en los ejercicios que no fijan
+            el suyo.
+          </InfoTip>
         </div>
         <div className="flex items-center gap-1.5">
           <Button
@@ -565,7 +603,7 @@ function PeriodizationStrip({
           >
             <Minus className="h-3.5 w-3.5" />
           </Button>
-          <span className="min-w-[88px] text-center text-[12px] font-extrabold uppercase tracking-[0.1em]">
+          <span className="min-w-[88px] text-center text-sm font-semibold tabular-nums">
             {b.weeksN} {b.weeksN === 1 ? 'semana' : 'semanas'}
           </span>
           <Button
@@ -592,26 +630,26 @@ function PeriodizationStrip({
               aria-selected={active}
               onClick={() => onSelect(i)}
               className={cn(
-                'flex w-[132px] flex-none flex-col gap-1.5 border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'flex w-[132px] flex-none flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 active ? 'border-2 border-primary bg-card' : 'border-border bg-background hover:border-border-strong',
                 wk.isDeload && 'bg-[repeating-linear-gradient(135deg,transparent_0_8px,hsl(var(--muted)/0.45)_8px_16px)]',
               )}
             >
-              <span className="font-poster text-[17px] leading-none">SEM {i + 1}</span>
+              <span className="display text-[17px]">Sem {i + 1}</span>
               <span className="flex items-center gap-1.5 truncate text-[11.5px] text-muted-foreground">
                 {wk.isDeload && (
-                  <span className="flex-none bg-muted px-1.5 py-0.5 text-[9px] font-extrabold tracking-[0.1em] text-foreground">DESCARGA</span>
+                  <span className="flex-none rounded bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-foreground">Descarga</span>
                 )}
                 <span className="truncate">{wk.label.trim() || '—'}</span>
               </span>
-              <span className="flex h-12 items-end bg-field p-1" aria-hidden="true">
+              <span className="flex h-12 items-end overflow-hidden rounded bg-field p-1" aria-hidden="true">
                 <span
-                  className={cn('block w-full', wk.isDeload ? 'bg-faint/60' : active ? 'bg-primary' : 'bg-primary/55')}
+                  className={cn('block w-full rounded-sm', wk.isDeload ? 'bg-faint/50' : active ? 'bg-primary' : 'bg-foreground/30')}
                   style={{ height: `${load != null ? Math.max(6, Math.min(100, load)) : 6}%` }}
                 />
               </span>
               <span className="flex justify-between text-[11px]">
-                <span className="font-extrabold tabular-nums">{rangeText(wk.loadMin, wk.loadMax) === '—' ? '— %' : `${rangeText(wk.loadMin, wk.loadMax)} %`}</span>
+                <span className="font-semibold tabular-nums">{rangeText(wk.loadMin, wk.loadMax) === '—' ? '— %' : `${rangeText(wk.loadMin, wk.loadMax)} %`}</span>
                 <span className="text-faint">RIR {rangeText(wk.rirMin, wk.rirMax)}</span>
               </span>
             </button>
@@ -621,47 +659,56 @@ function PeriodizationStrip({
 
       {w && (
         <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3">
-          <span className="self-center font-poster text-[17px]">SEM {sel + 1}</span>
+          <span className="display self-center text-[17px]">Sem {sel + 1}</span>
           <Field id="pw-week-label" label="Etiqueta">
             <Input
               id="pw-week-label"
-              className="h-8 w-44"
+              className="h-9 w-44"
               placeholder="Ej. Técnica y base"
               value={w.label}
               onChange={(e) => b.updWeek(sel, { label: e.target.value })}
             />
           </Field>
-          <div className="flex flex-col gap-1">
-            <span className={CAPS}>% carga</span>
+          <div className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className={CAPS}>Carga %</span>
+              <InfoTip label="Qué es la carga">El porcentaje de su máximo (1RM) que levanta esa semana.</InfoTip>
+            </span>
             <div className="flex items-center gap-1">
               {num('loadMin', 'carga mínima', 1, 100)}
               <span className="text-faint">–</span>
               {num('loadMax', 'carga máxima', 1, 100)}
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <span className={CAPS}>RIR</span>
+          <div className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className={CAPS}>RIR</span>
+              <InfoTip label="Qué es el RIR">Repeticiones en reserva: cuántas le quedan antes de no poder más.</InfoTip>
+            </span>
             <div className="flex items-center gap-1">
               {num('rirMin', 'RIR mínimo', 0, 10)}
               <span className="text-faint">–</span>
               {num('rirMax', 'RIR máximo', 0, 10)}
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <span className={CAPS}>Series (todas)</span>
+          <div className="flex flex-col gap-1.5">
+            <span className="flex items-center gap-1.5">
+              <span className={CAPS}>Series</span>
+              <InfoTip label="Series de la semana">Si lo rellenas, todos los ejercicios llevan estas series esa semana.</InfoTip>
+            </span>
             {num('setsOverride', 'series para toda la semana', 1, 20)}
           </div>
-          <label className="flex h-8 cursor-pointer items-center gap-2 border border-border bg-field px-2.5 text-[12px] font-bold uppercase tracking-[0.08em]">
+          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-field px-3 text-[13px] font-medium">
             <input
               type="checkbox"
-              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              className="h-4 w-4 accent-[hsl(var(--foreground))]"
               checked={w.isDeload}
               onChange={(e) => b.updWeek(sel, { isDeload: e.target.checked })}
             />
             Descarga
           </label>
           <Field id="pw-week-notes" label="Nota de la semana" className="min-w-[200px] flex-1">
-            <Input id="pw-week-notes" className="h-8" placeholder="Opcional" value={w.notes} onChange={(e) => b.updWeek(sel, { notes: e.target.value })} />
+            <Input id="pw-week-notes" className="h-9" placeholder="Opcional" value={w.notes} onChange={(e) => b.updWeek(sel, { notes: e.target.value })} />
           </Field>
         </div>
       )}
@@ -674,6 +721,9 @@ function PeriodizationStrip({
 function ExerciseLibrary({ catalog, onAdd }: { catalog: Exercise[] | null; onAdd: (name: string) => void }) {
   const [q, setQ] = useState('');
   const [part, setPart] = useState<string | null>(null);
+  // Folded on phones and tablets, where it would push the day below the fold;
+  // always open beside the day from lg up. Rows can also be typed directly.
+  const [open, setOpen] = useState(false);
 
   const parts = useMemo(() => {
     const s = new Set<string>();
@@ -695,18 +745,34 @@ function ExerciseLibrary({ catalog, onAdd }: { catalog: Exercise[] | null; onAdd
   }, [catalog, q, part]);
 
   return (
-    <aside aria-label="Biblioteca de ejercicios" className="flex flex-col gap-2.5 border border-border bg-card p-3.5 lg:sticky lg:top-[112px] lg:max-h-[calc(100vh-128px)]">
-      <div className="flex items-baseline justify-between">
-        <h2 className="font-heading text-[18px]">Ejercicios</h2>
-        <span className="text-[11.5px] text-faint">{catalog ? list.length : '…'}</span>
+    <aside aria-label="Biblioteca de ejercicios" className="flex flex-col gap-2.5 rounded-xl border border-border bg-card p-3.5 lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-176px)]">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className="-ml-1 flex items-center gap-1 rounded-md px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:pointer-events-none"
+          >
+            <ChevronDown className={cn('h-4 w-4 transition-transform lg:hidden', !open && '-rotate-90')} />
+            Biblioteca
+          </button>
+        </h2>
+        <span className="flex items-center gap-1.5 text-xs tabular-nums text-faint">
+          {catalog ? list.length : '…'}
+          <InfoTip label="Cómo añadir ejercicios" side="left">
+            Arrastra un ejercicio al día, o pulsa +. También puedes escribirlo directamente en la fila.
+          </InfoTip>
+        </span>
       </div>
-      <label className="flex h-9 items-center gap-2 border border-border bg-field px-2.5">
+      <div className={cn('min-h-0 flex-1 flex-col gap-2.5', open ? 'flex' : 'hidden lg:flex')}>
+      <label className="flex h-10 items-center gap-2 rounded-lg border border-border bg-field px-3">
         <Search className="h-3.5 w-3.5 text-faint" />
         <span className="sr-only">Buscar ejercicio</span>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar…"
+          placeholder="Buscar ejercicio"
           className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground placeholder:text-faint focus:outline-none"
         />
       </label>
@@ -718,16 +784,15 @@ function ExerciseLibrary({ catalog, onAdd }: { catalog: Exercise[] | null; onAdd
             aria-pressed={part === p}
             onClick={() => setPart(part === p ? null : p)}
             className={cn(
-              'px-2 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.06em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              part === p ? 'bg-primary text-primary-foreground' : 'border border-border text-muted-foreground hover:border-border-strong',
+              'h-7 rounded-full px-2.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              part === p ? 'bg-foreground text-background' : 'border border-border text-muted-foreground hover:border-border-strong hover:text-foreground',
             )}
           >
             {p}
           </button>
         ))}
       </div>
-      <p className="text-[11.5px] text-faint">Arrastra al día o pulsa +.</p>
-      <ul className="-mr-1.5 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1.5">
+      <ul className="-mr-1.5 flex max-h-[360px] min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto pr-1.5 lg:max-h-none">
         {catalog === null && <li className="py-6 text-center text-[12.5px] text-faint">Cargando catálogo…</li>}
         {catalog !== null && list.length === 0 && <li className="py-6 text-center text-[12.5px] text-faint">Sin resultados.</li>}
         {list.map((ex) => (
@@ -738,9 +803,9 @@ function ExerciseLibrary({ catalog, onAdd }: { catalog: Exercise[] | null; onAdd
               e.dataTransfer.setData(DT_EXERCISE, ex.name);
               e.dataTransfer.effectAllowed = 'copy';
             }}
-            className="flex cursor-grab items-center gap-2.5 border border-border bg-background p-1.5 active:cursor-grabbing"
+            className="flex cursor-grab items-center gap-2.5 rounded-lg border border-border bg-background p-1.5 active:cursor-grabbing"
           >
-            <span className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden border border-border bg-field">
+            <span className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-md border border-border bg-field">
               {isImage(ex.video_url) ? (
                 <img src={ex.video_url!} alt="" loading="lazy" className="h-full w-full object-cover" />
               ) : (
@@ -748,20 +813,21 @@ function ExerciseLibrary({ catalog, onAdd }: { catalog: Exercise[] | null; onAdd
               )}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="line-clamp-2 block text-[12.5px] font-bold leading-tight">{ex.name}</span>
-              <span className="block text-[11px] text-faint">{bodyPartLabel(ex.body_part?.name)}</span>
+              <span className="line-clamp-2 block text-[13px] font-semibold leading-tight">{ex.name}</span>
+              <span className="block text-xs text-faint">{bodyPartLabel(ex.body_part?.name)}</span>
             </span>
             <button
               type="button"
               onClick={() => onAdd(ex.name)}
               aria-label={`Añadir ${ex.name} al día`}
-              className="flex h-8 w-8 flex-none items-center justify-center border border-border-strong text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-border-strong text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
             </button>
           </li>
         ))}
       </ul>
+      </div>
     </aside>
   );
 }
@@ -793,15 +859,20 @@ function DayTabs({
             onClick={() => onSelect(i)}
             className={cn(
               'flex-none text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              isActive ? '-skew-x-[10deg] bg-primary text-primary-foreground' : 'border border-border bg-card hover:border-border-strong',
+              isActive ? '-skew-x-[10deg] bg-primary text-primary-foreground' : 'rounded-lg border border-border bg-card hover:border-border-strong',
             )}
           >
             <span className={cn('flex flex-col px-3.5 py-2', isActive && 'skew-x-[10deg]')}>
-              <span className={cn('text-[10px] font-extrabold uppercase tracking-[0.14em]', !isActive && 'text-faint')}>
+              <span className={cn('text-xs font-medium', !isActive && 'text-muted-foreground')}>
                 Día {i + 1}
-                {d.weekday && ` · ${WEEKDAY_SHORT[d.weekday] ?? ''}`} · {count}
+                {d.weekday && `, ${WEEKDAY_SHORT[d.weekday] ?? ''}`}
               </span>
-              <span className="max-w-[180px] truncate text-[13px] font-bold">{d.label.trim() || 'Sin nombre'}</span>
+              <span className="flex max-w-[200px] items-center gap-1.5 text-[13px] font-semibold">
+                <span className="truncate">{d.label.trim() || 'Sin nombre'}</span>
+                <span className={cn('flex-none rounded-full px-1.5 text-[11px] tabular-nums', isActive ? 'bg-white/20' : 'bg-muted text-muted-foreground')}>
+                  {count}
+                </span>
+              </span>
             </span>
           </button>
         );
@@ -810,7 +881,7 @@ function DayTabs({
         type="button"
         onClick={onAdd}
         aria-label="Añadir día"
-        className="flex w-11 flex-none items-center justify-center border border-dashed border-border-strong text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-11 flex-none items-center justify-center rounded-lg border border-dashed border-border-strong text-foreground transition-colors hover:border-foreground/40 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Plus className="h-4 w-4" strokeWidth={2.5} />
       </button>
@@ -848,23 +919,40 @@ function ExerciseTable({
   };
 
   return (
-    <div className="overflow-x-auto border border-border bg-card">
-      <div className="min-w-[700px]">
+    <div className="rounded-xl border border-border bg-card md:overflow-x-auto">
+      <div className="md:min-w-[700px]">
         {(weekRir !== '—' || weekSets) && (
-          <div className="border-b border-border bg-primary/[0.06] px-3.5 py-2 text-[12px] text-muted-foreground">
-            Semana {weekNumber}:{weekRir !== '—' && <> RIR <strong className="text-foreground">{weekRir}</strong></>}
-            {weekSets && <> · <strong className="text-foreground">{weekSets} series</strong> por ejercicio</>}
-            <span className="text-faint"> — los campos punteados heredan de la semana.</span>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-muted/50 px-3.5 py-2 text-[13px] text-muted-foreground">
+            <span className="font-medium text-foreground">Semana {weekNumber}</span>
+            {weekRir !== '—' && (
+              <span>
+                RIR <strong className="text-foreground">{weekRir}</strong>
+              </span>
+            )}
+            {weekSets && (
+              <span>
+                <strong className="text-foreground">{weekSets}</strong> series por ejercicio
+              </span>
+            )}
+            <InfoTip label="De dónde salen estos valores">
+              Los campos con borde punteado toman el valor de la semana mientras no escribas otro.
+            </InfoTip>
           </div>
         )}
-        <div className={cn(ROW_GRID, 'border-b border-border px-3.5 py-2', CAPS)} aria-hidden="true">
+        <div className={cn(ROW_GRID, 'hidden border-b border-border px-3.5 py-2 md:grid', CAPS)}>
           <span />
           <span>#</span>
           <span>Ejercicio</span>
           <span className="text-center">Series</span>
           <span className="text-center">Reps</span>
-          <span className="text-center">RIR</span>
-          <span className="text-center">%1RM</span>
+          <span className="flex items-center justify-center gap-1">
+            RIR
+            <InfoTip label="Qué es el RIR">Repeticiones en reserva: cuántas le quedan antes de no poder más.</InfoTip>
+          </span>
+          <span className="flex items-center justify-center gap-1">
+            %1RM
+            <InfoTip label="Qué es el %1RM">Porcentaje de su máximo para una repetición.</InfoTip>
+          </span>
           <span className="text-center">Desc. (s)</span>
           <span />
         </div>
@@ -878,8 +966,8 @@ function ExerciseTable({
           return (
           <Fragment key={xi}>
           {inGroup && g !== prev && (
-            <div className="border-l-[3px] border-primary bg-primary/[0.05] px-3.5 pt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-primary">
-              Superserie {g} · sin descanso entre ejercicios
+            <div className="border-l-[3px] border-secondary bg-secondary/[0.07] px-3.5 pt-2 text-xs font-semibold text-secondary">
+              Superserie {g}: sin descanso entre ejercicios
             </div>
           )}
           <ExerciseRow
@@ -913,11 +1001,11 @@ function ExerciseTable({
             onDropAt(e);
           }}
           className={cn(
-            'm-3 flex h-12 w-[calc(100%-1.5rem)] items-center justify-center gap-2 border-2 border-dashed text-[12px] font-extrabold uppercase tracking-[0.1em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            over === 'end' ? 'border-primary bg-primary/10 text-foreground' : 'border-border-strong text-muted-foreground hover:border-primary',
+            'm-3 flex h-12 w-[calc(100%-1.5rem)] items-center justify-center gap-2 rounded-lg border-2 border-dashed text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            over === 'end' ? 'border-secondary bg-secondary/10 text-foreground' : 'border-border-strong text-muted-foreground hover:border-foreground/40 hover:text-foreground',
           )}
         >
-          <Plus className="h-4 w-4 text-primary" strokeWidth={2.5} /> Suelta aquí o añade una fila
+          <Plus className="h-4 w-4" strokeWidth={2.5} /> {over === 'end' ? 'Suelta aquí' : 'Añadir ejercicio'}
         </button>
       </div>
     </div>
@@ -979,12 +1067,12 @@ function ExerciseRow({
       onDrop={onDrop}
       className={cn(
         'border-b border-border',
-        inGroup && 'border-l-[3px] border-l-primary bg-primary/[0.05]',
-        dropHere && 'shadow-[inset_0_3px_0_hsl(var(--primary))]',
+        inGroup && 'border-l-[3px] border-l-secondary bg-secondary/[0.07]',
+        dropHere && 'shadow-[inset_0_3px_0_hsl(var(--secondary))]',
         x.advOpen && 'bg-muted/30',
       )}
     >
-      <div className={cn(ROW_GRID, 'px-3.5 py-2')}>
+      <div className={cn(ROW_GRID, 'px-3 py-2.5 md:px-3.5 md:py-2')}>
         <span
           draggable
           onDragStart={(e) => {
@@ -992,11 +1080,11 @@ function ExerciseRow({
             e.dataTransfer.effectAllowed = 'move';
           }}
           title="Arrastra para reordenar"
-          className="flex cursor-grab items-center text-faint active:cursor-grabbing"
+          className="hidden cursor-grab items-center text-faint active:cursor-grabbing md:flex"
         >
           <GripVertical className="h-4 w-4" />
         </span>
-        <span className="font-poster text-[17px] leading-none text-muted-foreground">{xi + 1}</span>
+        <span className="display text-[17px] text-muted-foreground">{xi + 1}</span>
         <div className="flex min-w-0 items-center gap-2">
           <div className="min-w-0 flex-1">
             <ExerciseCombobox
@@ -1008,24 +1096,30 @@ function ExerciseRow({
               onChange={(v) => upd({ name: v })}
               disabled={b.catalog === null}
             />
-            <div className="mt-0.5 flex gap-1.5 text-[10.5px] text-faint">
+            <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs text-faint">
               <span>{x.name.trim() ? (catalogHit ? bodyPartLabel(catalogHit.body_part?.name) : 'Personalizado') : ''}</span>
-              {x.unilateral && <span className="bg-muted px-1 font-extrabold uppercase tracking-[0.06em] text-muted-foreground">Por lado</span>}
-              {qual && <span>· {qual}</span>}
-              {x.tempo.trim() && <span>· tempo {x.tempo.trim()}</span>}
-              {x.notes.trim() && <span>· nota</span>}
+              {x.unilateral && <span className="rounded bg-muted px-1.5 font-medium text-muted-foreground">Por lado</span>}
+              {qual && <span>{qual}</span>}
+              {x.tempo.trim() && <span>Tempo {x.tempo.trim()}</span>}
+              {x.notes.trim() && <span>Con nota</span>}
               {adjusted.length > 0 && (
-                <span className="font-bold text-warning">· ajustes {adjusted.map((w) => `S${w}`).join(', ')}</span>
+                <span className="font-semibold text-warning">Ajustes {adjusted.map((w) => `S${w}`).join(', ')}</span>
               )}
             </div>
           </div>
         </div>
-        <input className={CELL} type="number" min={1} max={20} aria-label="Series" value={x.sets} onChange={(e) => upd({ sets: e.target.value })} />
+        <div className="col-span-full row-start-2 grid grid-cols-[1fr_1.7fr_1.7fr] gap-2 pl-8 sm:grid-cols-[1fr_1.7fr_1.7fr_1fr_1fr] md:contents">
+        <Cell label="Series">
+          <input className={CELL} type="number" min={1} max={20} aria-label="Series" value={x.sets} onChange={(e) => upd({ sets: e.target.value })} />
+        </Cell>
+        <Cell label="Reps">
         <div className="flex items-center gap-1">
           <input className={CELL} type="number" min={1} max={100} aria-label="Repeticiones mínimas" value={x.repMin} onChange={(e) => upd({ repMin: e.target.value })} />
           <span className="text-faint">–</span>
           <input className={CELL} type="number" min={1} max={100} aria-label="Repeticiones máximas" value={x.repMax} onChange={(e) => upd({ repMax: e.target.value })} />
         </div>
+        </Cell>
+        <Cell label="RIR">
         <div className="flex items-center gap-1">
           <input
             className={cn(CELL, rirInherited && 'border-dashed')}
@@ -1049,15 +1143,21 @@ function ExerciseRow({
             onChange={(e) => upd({ rirMax: e.target.value })}
           />
         </div>
-        <input className={CELL} type="number" min={1} max={100} aria-label="% de 1RM" placeholder="—" value={x.loadPct} onChange={(e) => upd({ loadPct: e.target.value })} />
-        <input className={CELL} type="number" min={0} max={900} aria-label="Descanso en segundos" placeholder="—" value={x.rest} onChange={(e) => upd({ rest: e.target.value })} />
-        <div className="flex justify-end gap-0.5">
+        </Cell>
+        <Cell label="%1RM">
+          <input className={CELL} type="number" min={1} max={100} aria-label="% de 1RM" placeholder="—" value={x.loadPct} onChange={(e) => upd({ loadPct: e.target.value })} />
+        </Cell>
+        <Cell label="Desc. (s)">
+          <input className={CELL} type="number" min={0} max={900} aria-label="Descanso en segundos" placeholder="—" value={x.rest} onChange={(e) => upd({ rest: e.target.value })} />
+        </Cell>
+        </div>
+        <div className="col-start-3 row-start-1 flex justify-end gap-0.5 md:col-start-auto md:row-start-auto">
           <button
             type="button"
             onClick={() => upd({ advOpen: !x.advOpen })}
             aria-expanded={x.advOpen}
             aria-label={x.advOpen ? 'Ocultar opciones' : 'Más opciones'}
-            className="flex h-8 w-7 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8 md:w-7"
           >
             {x.advOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
@@ -1069,7 +1169,7 @@ function ExerciseRow({
               })
             }
             aria-label={`Quitar ejercicio ${xi + 1}`}
-            className="flex h-8 w-7 items-center justify-center text-faint hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 w-9 items-center justify-center rounded-md text-faint hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8 md:w-7"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -1077,7 +1177,7 @@ function ExerciseRow({
       </div>
 
       {x.advOpen && (
-        <div className="flex flex-wrap items-end gap-3 px-3.5 pb-3 pl-[64px]">
+        <div className="flex flex-wrap items-end gap-3 px-3 pb-3 md:px-3.5 md:pl-[64px]">
           <div className="flex flex-col gap-1">
             <span className={CAPS}>Carga</span>
             <select className={NATIVE_SELECT} aria-label="Carga cualitativa" value={x.loadQual} onChange={(e) => upd({ loadQual: e.target.value })}>
@@ -1096,10 +1196,10 @@ function ExerciseRow({
             <span className={CAPS}>Nota para el cliente</span>
             <Input className="h-8" aria-label="Nota para el cliente" placeholder="Ej. Paso largo, torso algo inclinado" value={x.notes} onChange={(e) => upd({ notes: e.target.value })} />
           </div>
-          <label className="flex h-8 cursor-pointer items-center gap-2 border border-border bg-field px-2.5 text-[12px] font-bold uppercase tracking-[0.08em]">
+          <label className="flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-border bg-field px-3 text-[13px] font-medium">
             <input
               type="checkbox"
-              className="h-3.5 w-3.5 accent-[hsl(var(--primary))]"
+              className="h-4 w-4 accent-[hsl(var(--foreground))]"
               checked={x.unilateral}
               onChange={(e) => upd({ unilateral: e.target.checked })}
             />
@@ -1127,15 +1227,20 @@ function ExerciseRow({
             </div>
           </div>
           <div className="flex gap-1">
-            <Button variant="outline" size="icon" aria-label="Subir" disabled={xi === 0} onClick={() => onMove(xi, xi - 1)}>
-              <ChevronUp className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="outline" size="icon" aria-label="Bajar" disabled={xi === count - 1} onClick={() => onMove(xi, xi + 2)}>
-              <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
+            <Tip label="Subir">
+              <Button variant="outline" size="icon-sm" aria-label="Subir" disabled={xi === 0} onClick={() => onMove(xi, xi - 1)}>
+                <ChevronUp />
+              </Button>
+            </Tip>
+            <Tip label="Bajar">
+              <Button variant="outline" size="icon-sm" aria-label="Bajar" disabled={xi === count - 1} onClick={() => onMove(xi, xi + 2)}>
+                <ChevronDown />
+              </Button>
+            </Tip>
             <Button
               variant="outline"
-              size="icon"
+              size="icon-sm"
+              title="Duplicar ejercicio"
               aria-label="Duplicar ejercicio"
               onClick={() => {
                 const rows = [...b.days[dayIdx].exercises];
@@ -1189,7 +1294,13 @@ function WeekOverrides({
   return (
     <div className="flex w-full flex-col gap-2 border-t border-border pt-3">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className={cn(CAPS, 'mr-1')}>Ajuste por semana</span>
+        <span className="mr-1 flex items-center gap-1.5">
+          <span className={CAPS}>Ajuste por semana</span>
+          <InfoTip label="Qué es un ajuste por semana">
+            Valores distintos para este ejercicio en una semana concreta (ej. 4 series en la semana 3). Lo que dejes vacío
+            usa los de la fila.
+          </InfoTip>
+        </span>
         {Array.from({ length: weeks }, (_, i) => i + 1).map((w) => {
           const has = overrideHasData(x.overrides?.[String(w)]);
           return (
@@ -1199,9 +1310,9 @@ function WeekOverrides({
               aria-pressed={editWeek === w}
               onClick={() => onEditWeek(editWeek === w ? null : w)}
               className={cn(
-                'h-8 min-w-10 border px-2 text-[12px] font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'h-8 min-w-10 rounded-md border px-2 text-[13px] font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 editWeek === w
-                  ? 'border-primary bg-primary text-primary-foreground'
+                  ? 'border-foreground bg-foreground text-background'
                   : has
                     ? 'border-warning bg-warning/15 text-warning'
                     : 'border-border bg-field text-muted-foreground hover:border-border-strong',
@@ -1241,7 +1352,6 @@ function WeekOverrides({
           <Button variant="ghost" size="sm" onClick={() => onChange(editWeek, emptyOverride())} disabled={!overrideHasData(o)}>
             Quitar ajuste S{editWeek}
           </Button>
-          <span className="text-[11.5px] text-faint">Lo que dejes vacío usa los valores de la fila.</span>
         </div>
       )}
     </div>
@@ -1272,7 +1382,13 @@ function VolumeCard({ b, dayIdx, week, weekNumber }: { b: ProgramBuilderState; d
   const max = Math.max(...weekRows.map(([, n]) => n));
 
   return (
-    <section aria-label="Series por grupo muscular" className="flex flex-wrap gap-6 border border-border bg-card p-4">
+    <section aria-labelledby="pw-volume" className="flex flex-wrap gap-x-8 gap-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="flex w-full items-center gap-1.5">
+        <h3 id="pw-volume" className="text-sm font-semibold">
+          Series por músculo
+        </h3>
+        <InfoTip label="Cómo se cuentan">Suma las series de cada grupo muscular en la semana que tienes seleccionada.</InfoTip>
+      </div>
       <VolumeBars rows={dayRows} max={max} title={`Día ${dayIdx + 1}`} />
       <VolumeBars rows={weekRows} max={max} title="Semana completa" />
     </section>
@@ -1284,15 +1400,15 @@ function VolumeBars({ rows, max, title }: { rows: [string, number][]; max: numbe
     <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
       <div className="flex justify-between">
         <span className={CAPS}>{title}</span>
-        <span className="text-[11.5px] font-extrabold tabular-nums">{rows.reduce((a, [, n]) => a + n, 0)} series</span>
+        <span className="text-xs font-semibold tabular-nums">{rows.reduce((a, [, n]) => a + n, 0)} series</span>
       </div>
       {rows.map(([part, n]) => (
-        <div key={part} className="flex items-center gap-2 text-[12px]">
+        <div key={part} className="flex items-center gap-2 text-[13px]">
           <span className="w-24 truncate text-muted-foreground">{part}</span>
-          <span className="h-2 flex-1 bg-field">
-            <span className="block h-2 bg-secondary" style={{ width: `${(n / max) * 100}%` }} />
+          <span className="h-2 flex-1 overflow-hidden rounded-full bg-field">
+            <span className="block h-2 rounded-full bg-secondary" style={{ width: `${(n / max) * 100}%` }} />
           </span>
-          <span className="w-6 text-right font-bold tabular-nums">{n}</span>
+          <span className="w-6 text-right font-semibold tabular-nums">{n}</span>
         </div>
       ))}
     </div>

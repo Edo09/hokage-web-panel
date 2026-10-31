@@ -104,8 +104,8 @@ function BlockTimeline({
       <Card className={className}>
         <CardHeader className="flex-row items-baseline justify-between space-y-0">
           <CardTitle>Sin bloque activo</CardTitle>
-          <button type="button" onClick={() => onGoTab('programs')} className="text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
-            Asignar programa →
+          <button type="button" onClick={() => onGoTab('programs')} className="text-[13px] font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
+            Asignar programa
           </button>
         </CardHeader>
         <CardContent className="text-[12.5px] text-faint">Asigna un programa para seguir su progreso semana a semana.</CardContent>
@@ -139,8 +139,8 @@ function BlockTimeline({
                 : `Semana ${current} de ${program.duration_weeks} · empezó el ${fmtShort(program.start_date)}`}
           </p>
         </div>
-        <button type="button" onClick={() => onGoTab('programs')} className="flex-none text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
-          Ver / editar →
+        <button type="button" onClick={() => onGoTab('programs')} className="flex-none text-[13px] font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
+          Ver o editar
         </button>
       </CardHeader>
       <CardContent>
@@ -158,7 +158,7 @@ function BlockTimeline({
                   w.deload && !now && 'border-dashed',
                 )}
               >
-                <span className="font-heading text-[15px] leading-none">Sem {w.n}</span>
+                <span className="display text-[15px]">Sem {w.n}</span>
                 <span className={cn('text-[11.5px] font-bold tabular-nums', past ? (good ? 'text-success' : 'text-warning') : now ? 'text-foreground' : 'text-faint')}>
                   {past || now ? `${w.done}/${perWeek} días` : w.deload ? 'Descarga' : (w.label ?? '—')}
                 </span>
@@ -231,7 +231,7 @@ function LastSession({
       <CardContent className="overflow-x-auto">
         <table className="w-full min-w-[480px] text-[12.5px]">
           <thead>
-            <tr className="border-b border-border text-left text-[10px] font-extrabold uppercase tracking-[0.12em] text-faint">
+            <tr className="border-b border-border text-left text-xs font-medium text-faint">
               <th className="py-2 pr-3 font-extrabold">Ejercicio</th>
               <th className="py-2 pr-3 font-extrabold">Plan</th>
               <th className="py-2 pr-3 font-extrabold">Hecho ({unit})</th>
@@ -260,8 +260,8 @@ function LastSession({
             })}
           </tbody>
         </table>
-        <button type="button" onClick={() => onGoTab('tracking')} className="mt-2 text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
-          Ver todo el seguimiento →
+        <button type="button" onClick={() => onGoTab('tracking')} className="mt-2 text-[13px] font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
+          Ver todo el seguimiento
         </button>
       </CardContent>
     </Card>
@@ -318,7 +318,7 @@ function Adherence({
               transform="rotate(-90 56 56)"
             />
           )}
-          <text x="56" y="62" textAnchor="middle" className="fill-foreground font-heading" fontSize="24">
+          <text x="56" y="62" textAnchor="middle" className="fill-foreground font-display" fontSize="26">
             {pct != null ? `${pct}%` : '—'}
           </text>
         </svg>
@@ -379,7 +379,7 @@ function WeightCard({
           <p className="text-[12.5px] text-faint">Aún no ha registrado su peso.</p>
         ) : (
           <>
-            <div className="font-heading text-[30px] leading-none">{formatWeight(latest.weight_kg, unit)}</div>
+            <div className="display text-[30px]">{formatWeight(latest.weight_kg, unit)}</div>
             <div className="mt-1 text-[11.5px] text-faint">Último registro: {fmtShort(latest.measured_on)}</div>
             {series.length >= 2 && (
               <div className="mt-2">
@@ -390,8 +390,8 @@ function WeightCard({
         )}
         {/* Keeps the link at the bottom when the row is taller */}
         <div className="flex-1" />
-        <button type="button" onClick={() => onGoTab('progress')} className="mt-1 w-fit text-[12px] font-extrabold uppercase tracking-[0.08em] text-primary hover:underline">
-          Ver medidas →
+        <button type="button" onClick={() => onGoTab('progress')} className="mt-1 w-fit text-[13px] font-semibold text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground">
+          Ver medidas
         </button>
       </CardContent>
     </Card>

@@ -202,7 +202,8 @@ export const mealsFrom = (p: NutritionPlanWithDetail): MealRow[] =>
           appliesTo: m.applies_to,
           isOptional: m.is_optional,
           notes: m.notes ?? '',
-          advOpen: m.applies_to !== 'both' || m.is_optional || !!m.time_hint || !!m.notes,
+          // UI-only: the builder's note row is open when there is a note.
+          advOpen: !!m.notes,
           options:
             m.nutrition_plan_options.length === 0
               ? [emptyOption(1)]

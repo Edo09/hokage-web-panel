@@ -8,10 +8,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        heading: ['Poppins', 'Inter', 'sans-serif'],
-        brand: ['EdoSZ', 'Poppins', 'sans-serif'],
+        // Archivo for everything you read; Anton (the app's poster face) only
+        // for page titles and the numbers a coach scans.
+        sans: ['Archivo', 'system-ui', 'sans-serif'],
+        heading: ['Archivo', 'system-ui', 'sans-serif'],
+        display: ['Anton', 'Impact', 'sans-serif'],
         poster: ['Anton', 'Impact', 'sans-serif'],
+        brand: ['EdoSZ', 'Anton', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -53,30 +56,40 @@ export default {
         warning: 'hsl(var(--warning))',
         faint: 'hsl(var(--faint))',
         rail: 'hsl(var(--rail))',
+        // Weight-plate colours, used only for nutrition data and day types,
+        // always next to a label or icon.
+        protein: 'hsl(var(--protein))',
+        carbs: 'hsl(var(--carbs))',
+        fat: 'hsl(var(--fat))',
+        training: 'hsl(var(--training))',
+        rest: 'hsl(var(--rest))',
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 4px)',
-        sm: 'calc(var(--radius) - 6px)',
+        '2xl': '12px',
+        xl: '10px',
+        lg: '8px',
+        md: '6px',
+        sm: '4px',
       },
       boxShadow: {
         card: 'var(--shadow-card)',
+        pop: 'var(--shadow-pop)',
       },
       keyframes: {
         'fade-up': {
-          from: { opacity: '0', transform: 'translateY(8px)' },
+          from: { opacity: '0', transform: 'translateY(6px)' },
           to: { opacity: '1', transform: 'none' },
         },
       },
       animation: {
-        'fade-up': 'fade-up .25s ease',
+        'fade-up': 'fade-up .2s ease-out',
       },
     },
   },
   plugins: [
     animate,
-    // Design switch (src/hooks/useDesign.tsx): `poster:` styles apply to the
-    // Dojo Poster look, `legacy:` to the deprecated original.
+    // `poster:` (the only look now) is kept so older class lists still apply;
+    // `legacy:` matches nothing since the Clásico style was retired.
     plugin(({ addVariant }) => {
       addVariant('poster', ':is([data-design="poster"] &)');
       addVariant('legacy', ':is([data-design="legacy"] &)');

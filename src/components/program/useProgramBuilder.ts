@@ -54,9 +54,8 @@ export interface ProgramBuilderProps {
 }
 
 /**
- * State, autosave and save for the program builder. Shared by the workspace
- * (ProgramWorkspace) and the deprecated wizard (LegacyProgramBuilder), so
- * both write exactly the same program.
+ * State, autosave and save for the program builder (ProgramWorkspace is its
+ * layout).
  *
  * Two callers:
  *   - a client's Programas tab → `client` set, saves an assigned program;

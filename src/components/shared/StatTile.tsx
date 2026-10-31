@@ -4,13 +4,14 @@ import { cn } from '@/lib/utils';
 
 export type StatTone = 'primary' | 'secondary' | 'warning' | 'success';
 
-const CHIP: Record<StatTone, string> = {
-  primary: 'bg-primary/10 text-primary dark:bg-primary/15',
-  secondary: 'bg-secondary/10 text-secondary dark:bg-secondary/15',
-  warning: 'bg-warning/15 text-warning',
-  success: 'bg-success/15 text-success',
+const ICON: Record<StatTone, string> = {
+  primary: 'text-foreground',
+  secondary: 'text-secondary',
+  warning: 'text-warning',
+  success: 'text-success',
 };
 
+/** One number the coach checks every morning, with a line of context. */
 export function StatTile({
   label,
   value,
@@ -27,20 +28,18 @@ export function StatTile({
   tone: StatTone;
 }) {
   return (
-    <Card className="flex min-h-[118px] flex-col gap-2.5 p-5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[12.5px] font-semibold text-muted-foreground">{label}</span>
-        <span className={cn('flex h-8 w-8 flex-none items-center justify-center rounded-[10px]', CHIP[tone])}>
-          <Icon className="h-[15px] w-[15px]" strokeWidth={1.8} />
-        </span>
+    <Card className="flex min-h-[116px] flex-col gap-3 p-4">
+      <div className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+        <Icon className={cn('h-4 w-4 flex-none', ICON[tone])} strokeWidth={2} />
+        <span className="truncate">{label}</span>
       </div>
-      <div className="font-heading text-[28px] font-bold leading-none">{value}</div>
+      <div className="display text-[36px] tabular-nums">{value}</div>
       <div
         className={cn(
-          'text-xs',
+          'mt-auto text-xs',
           subTone === 'success' && 'text-success',
           subTone === 'warning' && 'text-warning',
-          subTone === 'muted' && 'text-faint',
+          subTone === 'muted' && 'text-muted-foreground',
         )}
       >
         {sub}

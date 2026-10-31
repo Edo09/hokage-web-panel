@@ -6,7 +6,8 @@ const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLI
     <input
       type={type}
       className={cn(
-        'flex h-9 w-full rounded-[10px] border border-border bg-field px-3 py-1.5 text-[13px] text-foreground placeholder:text-faint focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-10 w-full rounded-lg border border-border bg-field px-3 py-2 text-sm text-foreground transition-colors placeholder:text-faint hover:border-border-strong focus-visible:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+        type === 'number' && 'no-spin',
         className,
       )}
       ref={ref}

@@ -1,65 +1,65 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Moon, SlidersHorizontal, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useCoach } from '@/hooks/useCoach';
-import { cn } from '@/lib/utils';
+import { useTheme } from '@/hooks/useTheme';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { NotificationBell } from './NotificationBell';
 
 export function TopBar({ title }: { title: string }) {
   const { signOut } = useAuth();
   const { coach } = useCoach();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
-
-  const today = new Intl.DateTimeFormat('es-DO', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date());
+  const initial = (coach.display_name || 'C').trim().charAt(0).toUpperCase();
 
   return (
-    <header
-      className={cn(
-        'sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-card px-7 py-4',
-        // Poster: the app's header panel — gradient, skewed ghost block, big title.
-        'poster:overflow-hidden poster:bg-gradient-to-b poster:from-card poster:to-background poster:py-5',
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-16 right-40 hidden h-[260px] w-[240px] -skew-x-[18deg] bg-primary/[0.07] poster:block"
-      />
-      <div className="relative min-w-0">
-        <h1 className="truncate font-heading text-lg font-semibold poster:text-[34px] poster:leading-none">{title}</h1>
-        <div className="flex items-center gap-2.5 text-xs text-faint poster:mt-2.5 poster:text-[11.5px] poster:font-bold poster:uppercase poster:tracking-[0.16em] poster:text-muted-foreground">
-          <span aria-hidden="true" className="hidden h-[3px] w-[22px] flex-none bg-primary poster:block" />
-          {today}
+    <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur-md">
+      <div className="mx-auto flex h-14 w-full max-w-[1320px] items-center gap-3 px-4 sm:px-6 md:h-16 lg:px-8">
+        <img src="/logo.jpg" alt="" className="h-8 w-8 flex-none rounded-md border border-border object-cover md:hidden" />
+        <h1 className="display min-w-0 truncate pt-0.5 text-[24px] md:text-[30px]">{title}</h1>
+
+        <div className="ml-auto flex flex-none items-center gap-1.5">
+          <NotificationBell />
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Tu cuenta"
+              className="flex h-10 items-center gap-2.5 rounded-lg pl-1 pr-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pr-3"
+            >
+              <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-[13px] font-bold text-background">
+                {initial}
+              </span>
+              <span className="hidden max-w-[160px] truncate text-sm font-medium sm:block">{coach.display_name}</span>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-60">
+              <DropdownMenuLabel className="pb-2">
+                <span className="block truncate text-sm font-semibold text-foreground">{coach.display_name}</span>
+                <span className="block text-xs font-normal text-muted-foreground">Coach</span>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => navigate('/settings')}>
+                <SlidersHorizontal />
+                Ajustes
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={toggle}>
+                {theme === 'dark' ? <Sun /> : <Moon />}
+                {theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => void signOut().then(() => navigate('/login'))}>
+                <LogOut />
+                Cerrar sesión
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-      <div className="relative flex flex-none items-center gap-3">
-        <NotificationBell />
-        <div className="flex items-center gap-2.5">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-[13px] font-bold text-primary dark:bg-primary/15 poster:rounded-none poster:-skew-x-[8deg] poster:bg-primary poster:text-primary-foreground"
-          >
-            <span className="poster:skew-x-[8deg]">{(coach.display_name || 'C').trim().charAt(0).toUpperCase()}</span>
-          </span>
-          <div className="leading-tight">
-            <div className="text-[13px] font-semibold">{coach.display_name}</div>
-            <div className="text-[11.5px] text-faint">Coach</div>
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            void signOut().then(() => navigate('/login'));
-          }}
-          aria-label="Cerrar sesión"
-          title="Cerrar sesión"
-          className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <LogOut className="h-4 w-4" strokeWidth={1.8} />
-        </button>
       </div>
     </header>
   );

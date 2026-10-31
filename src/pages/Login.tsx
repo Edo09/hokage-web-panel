@@ -29,19 +29,13 @@ export default function Login() {
   };
 
   return (
-    <div
-      className="flex min-h-screen items-center justify-center p-6"
-      style={{
-        background:
-          'radial-gradient(1200px 600px at 50% -10%, hsl(var(--primary) / 0.09), transparent 60%), hsl(var(--background))',
-      }}
-    >
-      <div className="w-full max-w-[400px] animate-fade-up rounded-[20px] border border-border bg-card p-8 pt-9 shadow-card">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 sm:p-6">
+      <div className="w-full max-w-[400px] animate-fade-up rounded-2xl border border-border bg-card p-6 pt-8 sm:p-8 sm:pt-9">
         <div className="mb-6 flex flex-col items-center gap-3">
           <img
             src="/logo.jpg"
             alt="The Hokage Coaching"
-            className="h-[76px] w-[76px] rounded-[20px] border border-border object-cover"
+            className="h-[76px] w-[76px] rounded-2xl border border-border object-cover"
           />
           <div className="text-center">
             <div className="font-brand text-[26px] tracking-wide">The Hokage Coaching</div>
@@ -53,7 +47,7 @@ export default function Login() {
           onSubmit={(e) => {
             void submit(e);
           }}
-          className="flex flex-col gap-3.5"
+          className="flex flex-col gap-4"
         >
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Correo electrónico</Label>
@@ -83,13 +77,13 @@ export default function Login() {
               autoComplete="current-password"
             />
           </div>
-          {error && <p className="text-[12.5px] text-primary">{error}</p>}
+          {error && <p className="text-[13px] text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="mt-1.5" disabled={loading}>
             {loading ? 'Iniciando…' : 'Iniciar sesión'}
           </Button>
         </form>
 
-        <p className="mt-5 text-center text-xs text-faint">Acceso exclusivo para el coach</p>
+        <p className="mt-5 text-center text-xs text-faint">Solo para el coach</p>
       </div>
     </div>
   );

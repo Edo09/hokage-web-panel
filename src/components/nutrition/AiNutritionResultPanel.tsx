@@ -72,7 +72,7 @@ export function AiNutritionResultPanel({
   return (
     <section
       aria-labelledby="ai-nutrition-result-title"
-      className="border border-l-[3px] border-border border-l-primary bg-card motion-safe:animate-fade-up"
+      className="rounded-xl border border-l-[3px] border-border border-l-primary bg-card motion-safe:animate-fade-up"
     >
       <div className="px-5 py-4">
         {/* Title row: collapse/close stay top-right at every width. Collapsed,
@@ -82,10 +82,10 @@ export function AiNutritionResultPanel({
             id="ai-nutrition-result-title"
             ref={titleRef}
             tabIndex={-1}
-            className="flex items-center gap-2 font-heading text-[20px] focus:outline-none"
+            className="flex items-center gap-2 text-lg font-semibold focus:outline-none"
           >
             <Sparkles className="h-4 w-4 flex-none text-primary" strokeWidth={2.25} aria-hidden="true" />
-            {result.kind === 'new' ? 'Borrador generado' : 'Cambios aplicados'}
+            {result.kind === 'new' ? 'Borrador de la IA' : 'Cambios de la IA'}
           </h2>
           {!open && (
             <p className="text-[13px] text-muted-foreground">
@@ -132,7 +132,7 @@ export function AiNutritionResultPanel({
               <Fact value={String(facts.meals)} label={facts.meals === 1 ? 'comida' : 'comidas'} />
               <Fact value={String(facts.options)} label={facts.options === 1 ? 'opción' : 'opciones'} />
               <Fact value={String(facts.foods)} label={facts.foods === 1 ? 'alimento' : 'alimentos'} />
-              <Fact value={facts.dayCycling ? 'Sí' : 'No'} label="ciclado por tipo de día" />
+              <Fact value={facts.dayCycling ? 'Sí' : 'No'} label="entreno y descanso" />
               {facts.weeks && <Fact value={facts.weeks} label={facts.weeks === '1' ? 'semana' : 'semanas'} />}
             </dl>
             {(facts.targets.length > 0 || notes) && (
@@ -150,7 +150,7 @@ export function AiNutritionResultPanel({
           {/* What changed (edits only) */}
           {changes && (
             <div>
-              <h3 className="mb-2 font-heading text-[15px]">Qué cambió</h3>
+              <h3 className="mb-2 text-sm font-semibold">Qué cambió</h3>
               {changeCount === 0 ? (
                 <p className="text-[13px] text-muted-foreground">Las comidas y los objetivos quedaron igual.</p>
               ) : (
@@ -162,7 +162,7 @@ export function AiNutritionResultPanel({
           {/* Every meal at a glance */}
           {showMeals && (
             <div>
-              <h3 className="mb-2 font-heading text-[15px]">
+              <h3 className="mb-2 text-sm font-semibold">
                 {result.kind === 'new' ? 'Las comidas' : 'Así queda cada comida'}
               </h3>
               <ol className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
@@ -183,7 +183,7 @@ export function AiNutritionResultPanel({
                   return (
                     <li key={i} className="flex flex-col border border-border bg-background p-3.5">
                       <div className="flex items-start gap-3">
-                        <span aria-hidden="true" className="font-poster text-[44px] leading-[0.8] text-primary">
+                        <span aria-hidden="true" className="display text-[40px] leading-[0.8] text-muted-foreground">
                           {i + 1}
                         </span>
                         <div className="min-w-0 flex-1">
@@ -257,7 +257,7 @@ function Fact({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col-reverse">
       <dt className="text-[12px] text-muted-foreground">{label}</dt>
-      <dd className="font-poster text-[34px] leading-none tabular-nums">{value}</dd>
+      <dd className="display text-[32px] tabular-nums">{value}</dd>
     </div>
   );
 }

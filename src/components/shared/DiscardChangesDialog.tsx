@@ -10,21 +10,18 @@ import {
 } from '@/components/ui/alert-dialog';
 
 /**
- * The builders' "Cancelar" confirmation (workspace and Clásico wizard), shown
- * only when there's work to lose — see useProgramBuilder#hasChanges.
- * `onDiscard` drops the autosave and closes the builder.
+ * Every builder's close confirmation, shown only when there's work to lose.
+ * `onDiscard` drops the draft and closes the builder.
  */
 export function DiscardChangesDialog({
   open,
   onOpenChange,
-  isTemplate,
   editing,
   onDiscard,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  isTemplate: boolean;
-  /** Editing a saved program/template (vs. a new one). */
+  /** Editing something already saved (vs. a new one). */
   editing: boolean;
   onDiscard: () => void;
 }) {
@@ -34,9 +31,7 @@ export function DiscardChangesDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>¿Descartar los cambios?</AlertDialogTitle>
           <AlertDialogDescription>
-            {editing
-              ? `Se pierde lo que cambiaste desde que abriste ${isTemplate ? 'la plantilla' : 'el programa'}. La versión guardada queda como estaba.`
-              : `Se pierde lo que llevas de ${isTemplate ? 'esta plantilla' : 'este programa'}. No se guardó ni se asignó nada.`}
+            {editing ? 'La versión guardada no cambia.' : 'Todavía no se ha guardado nada.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

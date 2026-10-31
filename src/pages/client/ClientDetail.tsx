@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, KeyRound, MessageCircle, UserX } from 'lucide-react';
+import { ChevronLeft, Ellipsis, KeyRound, MessageCircle, UserX } from 'lucide-react';
 import { getClient } from '@/services/clients';
 import { qk } from '@/lib/queryClient';
-import { activityLabel, avatarColor, cn, fmtShort, initials } from '@/lib/utils';
+import { activityLabel, avatarColor, fmtShort } from '@/lib/utils';
 import { useWeightUnit } from '@/hooks/useWeightUnit';
 import { formatWeight } from '@/lib/weightUnit';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar } from '@/components/shared/Avatar';
@@ -72,80 +78,78 @@ export default function ClientDetail() {
   }
 
   return (
-    <div className="flex animate-fade-up flex-col gap-[18px]">
+    <div className="flex animate-fade-up flex-col gap-5">
       <Link
         to="/clients"
-        className="flex w-fit items-center gap-1.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="-ml-1 flex w-fit items-center gap-1 rounded-md px-1 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
+        <ChevronLeft className="h-4 w-4" strokeWidth={2} />
         Clientes
       </Link>
 
       {!client ? (
         <>
-          <Skeleton className="h-[124px] rounded-2xl" />
-          <Skeleton className="h-10 rounded-xl" />
-          <Skeleton className="h-[300px] rounded-2xl" />
+          <Skeleton className="h-[96px] rounded-xl" />
+          <Skeleton className="h-11 rounded-lg" />
+          <Skeleton className="h-[300px] rounded-xl" />
         </>
       ) : (
         <>
-          {/* Header card */}
-          <Card className="flex flex-wrap items-center gap-[18px] p-[22px]">
-            <span className="legacy:contents hidden">
-              <Avatar
-                name={client.display_name}
-                color={avatarColor(client.id)}
-                size={64}
-                radiusClass="rounded-[20px] font-heading"
-              />
-            </span>
-            {/* Poster: the app's skewed red tile with the initials upright. */}
-            <span
-              aria-hidden="true"
-              className="hidden h-[76px] w-[76px] flex-none -skew-x-[8deg] items-center justify-center bg-primary text-primary-foreground poster:flex"
-            >
-              <span className="skew-x-[8deg] font-poster text-[32px]">{initials(client.display_name ?? client.email)}</span>
-            </span>
+          {/* Header: who, their status, and the two ways to reach them. */}
+          <div className="flex flex-wrap items-start gap-4">
+            <Avatar
+              name={client.display_name ?? client.email}
+              color={avatarColor(client.id)}
+              size={60}
+              radiusClass="rounded-2xl"
+              className="font-display text-[24px] font-normal"
+            />
             <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className={cn('font-heading text-[19px] font-semibold', 'poster:text-[34px] poster:leading-none')}>
-                  {client.display_name ?? client.email}
-                </span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h2 className="display min-w-0 break-words text-[30px] sm:text-[36px]">{client.display_name ?? client.email}</h2>
                 {client.membership && <StatusBadge status={client.membership.status} />}
               </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-[12.5px] text-faint">
-                <span className="hidden h-[3px] w-[22px] bg-primary poster:block" aria-hidden="true" />
-                <span>{client.email}</span>
-                {client.created_at && <span>· cliente desde {fmtShort(client.created_at)}</span>}
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+                <span className="truncate">{client.email}</span>
+                {client.created_at && <span>Cliente desde {fmtShort(client.created_at)}</span>}
               </div>
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
-                  {client.age ?? '—'} años
-                </span>
-                <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
-                  {client.height_cm ?? '—'} cm
-                </span>
-                <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
-                  {formatWeight(client.weight_kg, unit)}
-                </span>
-                <span className="rounded-full bg-muted px-[11px] py-[5px] text-xs font-semibold text-muted-foreground">
-                  Actividad: {activityLabel(client.activity_level)}
-                </span>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {[
+                  `${client.age ?? '—'} años`,
+                  `${client.height_cm ?? '—'} cm`,
+                  formatWeight(client.weight_kg, unit),
+                  `Actividad: ${activityLabel(client.activity_level).toLowerCase()}`,
+                ].map((t) => (
+                  <span key={t} className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+                    {t}
+                  </span>
+                ))}
               </div>
             </div>
-            {whatsapp && (
-              <Button variant="outline" size="sm" asChild className="border-success/60 text-success hover:bg-success/10">
-                <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
-                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={2} />
-                  WhatsApp
-                </a>
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={() => setResetOpen(true)}>
-              <KeyRound className="h-3.5 w-3.5" strokeWidth={2} />
-              Restablecer contraseña
-            </Button>
-          </Card>
+            <div className="flex w-full items-center gap-1.5 sm:w-auto sm:flex-none">
+              {whatsapp && (
+                <Button variant="outline" size="sm" asChild className="flex-1 sm:flex-none">
+                  <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noreferrer">
+                    <MessageCircle className="!text-success" />
+                    WhatsApp
+                  </a>
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon-sm" aria-label="Más acciones del cliente">
+                    <Ellipsis />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => setResetOpen(true)}>
+                    <KeyRound />
+                    Restablecer contraseña
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
           <ResetPasswordDialog
             open={resetOpen}
             onOpenChange={setResetOpen}

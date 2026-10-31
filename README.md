@@ -68,10 +68,7 @@ They use the same `ALLOWED_ORIGINS` secret as the account functions. Details: `d
 
 ## Visual style
 
-Two looks, switchable in **Ajustes → Estilo del panel** (stored per browser, applied as `data-design` on `<html>`):
-
-- **Nuevo (Dojo)**, the default: the mobile app's "Dojo Poster" style: Anton caps headings (bundled via `@fontsource/anton`), skewed red primary buttons, sharp corners, the app's slate palette. Tokens in `src/index.css` under `[data-design='poster']`; component tweaks use the `poster:` Tailwind variant.
-- **Clásico (legacy)**: **deprecated**. The original rounded look, kept only as a fallback. Don't build new UI for it; it will be removed along with the `legacy:` variant and its tokens.
+One look, shared with the mobile app's "Dojo Poster" style but calmer: Archivo for UI text (sentence case), Anton only for page titles and key numbers, Hokage red only for the primary action and "you are here". Weight-plate colours carry nutrition meaning (protein blue, carbs yellow, fat green; training orange, rest violet). Tokens live in `src/index.css`; shared pieces in `src/components/ui` (incl. `info-tip`, `segmented`, `field`) and `src/components/shared` (`FocusEditor`, `PlanCard`, `AssignDialog`). Builders open full-screen in focus mode (`src/hooks/useFocusMode.tsx`). Phones get a bottom tab bar and bottom-sheet dialogs.
 
 ## Data layer
 

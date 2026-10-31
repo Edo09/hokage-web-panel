@@ -10,12 +10,16 @@ const TabsList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn('flex items-center gap-1 overflow-x-auto border-b border-border', className)}
+    className={cn(
+      'no-scrollbar -mx-4 flex items-center gap-1 overflow-x-auto border-b border-border px-4 sm:mx-0 sm:px-0',
+      className,
+    )}
     {...props}
   />
 ));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
+/** Underline tabs. The active one gets the red rule — it marks where you are. */
 const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.Trigger>
@@ -23,9 +27,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-[13.5px] font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-primary',
-      // Poster: caps tabs, thick red underline, active label in foreground.
-      'poster:border-b-[3px] poster:text-[12.5px] poster:font-extrabold poster:uppercase poster:tracking-[0.1em] poster:data-[state=active]:text-foreground',
+      'relative -mb-px inline-flex h-11 flex-none items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring data-[state=active]:border-primary data-[state=active]:text-foreground [&_svg]:h-4 [&_svg]:w-4',
       className,
     )}
     {...props}
@@ -39,10 +41,7 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn(
-      'mt-4 animate-fade-up focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-      className,
-    )}
+    className={cn('mt-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', className)}
     {...props}
   />
 ));

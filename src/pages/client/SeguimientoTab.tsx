@@ -246,7 +246,7 @@ export function SeguimientoTab({ client }: { client: ClientWithMeta }) {
                 </p>
               ) : (
                 <>
-                  <div className={`${SET_GRID} mt-3 border-b border-border pb-1 text-[10px] font-bold uppercase tracking-wide text-faint`}>
+                  <div className={`${SET_GRID} mt-3 border-b border-border pb-1 text-xs font-medium text-faint`}>
                     <span>Fecha</span>
                     <span className="text-center">Sem</span>
                     <span className="text-center">Serie</span>
