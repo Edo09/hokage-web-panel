@@ -49,7 +49,7 @@ export function AiPromptDialog({
   hasContent: boolean;
   mode: AiMode;
   onModeChange: (m: AiMode) => void;
-  /** Extra detail on what "start over" replaces, behind an ⓘ. */
+  /** What else "start over" affects (it's a warning, so it's shown in full). */
   replaceNote?: ReactNode;
   prompt: string;
   onPromptChange: (v: string) => void;
@@ -99,9 +99,8 @@ export function AiPromptDialog({
                 ]}
               />
               {mode === 'new' && (
-                <p className="flex items-center gap-1.5 text-[13px] text-warning">
-                  Reemplaza todo el borrador actual.
-                  {replaceNote && <InfoTip label="Qué pasa con lo registrado">{replaceNote}</InfoTip>}
+                <p role="status" className="text-[13px] leading-snug text-warning">
+                  Reemplaza todo el borrador actual.{replaceNote && <> {replaceNote}</>}
                 </p>
               )}
             </div>

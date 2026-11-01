@@ -194,17 +194,15 @@ export default function Programs() {
   return (
     <div className="flex animate-fade-up flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        {(templates?.length ?? 0) > 4 ? (
+        {(templates?.length ?? 0) > 4 || query !== '' ? (
           <LibrarySearch query={query} onQuery={setQuery} placeholder="Buscar programa" />
         ) : (
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            Tus bloques, listos para asignar
-            <InfoTip label="Cómo funcionan las plantillas">
-              Créalos una vez y asígnalos a quien quieras. Cada cliente recibe una copia: editar aquí no cambia el bloque
-              que alguien ya sigue.
-            </InfoTip>
-          </p>
+          (templates?.length ?? 0) > 0 && <p className="text-sm text-muted-foreground">Tus bloques, listos para asignar</p>
         )}
+        <InfoTip label="Cómo funcionan las plantillas">
+          Créalos una vez y asígnalos a quien quieras. Cada cliente recibe una copia: editar aquí no cambia el bloque que
+          alguien ya sigue.
+        </InfoTip>
         <Button className="ml-auto" onClick={() => setBuilderOpen(true)} aria-label={newLabel}>
           <Plus strokeWidth={2.5} />
           <span className="hidden sm:inline">{newLabel}</span>

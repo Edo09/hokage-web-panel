@@ -186,7 +186,7 @@ export default function Memberships() {
                         <span className="mt-1 flex min-w-0 items-center gap-2 md:hidden">
                           <StatusBadge status={status} className="px-2 py-0.5" />
                           <span className={cn('truncate text-xs', TONE_CLASS[exp.tone])}>
-                            {exp.label === '—' ? 'Sin vencimiento' : exp.label}
+                            {!m ? 'Sin membresía' : !m.expires_at ? 'Sin vencimiento' : exp.label}
                           </span>
                         </span>
                       </span>
@@ -256,7 +256,9 @@ export default function Memberships() {
       <AlertDialog open={!!pauseTarget} onOpenChange={(o) => !o && setPauseTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Pausar la membresía de {pauseTarget?.display_name?.split(' ')[0]}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              ¿Pausar la membresía de {(pauseTarget?.display_name ?? pauseTarget?.email ?? '').split(' ')[0]}?
+            </AlertDialogTitle>
             <AlertDialogDescription>Sigue entrando a la app; la membresía queda marcada en pausa.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

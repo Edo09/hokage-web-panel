@@ -52,7 +52,7 @@ export function AppShell() {
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} />
         <div className="flex min-w-0 flex-1 flex-col">
           <TopBar title={title} />
-          <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 pb-28 pt-5 sm:px-6 md:pb-16 md:pt-7 lg:px-8">
+          <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 pb-28 pt-5 sm:px-6 md:pb-16 md:pr-[max(1.5rem,env(safe-area-inset-right))] md:pt-7 lg:px-8 lg:pr-[max(2rem,env(safe-area-inset-right))]">
             <Outlet />
           </main>
         </div>

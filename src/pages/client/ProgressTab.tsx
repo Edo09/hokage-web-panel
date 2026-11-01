@@ -176,7 +176,7 @@ function MeasurementsCard({ client }: { client: ClientWithMeta }) {
                 return (
                   <div key={m.key} className="rounded-xl border border-border px-3 py-2.5">
                     <div className="text-[11.5px] font-semibold text-faint">{m.label}</div>
-                    <div className="font-heading text-lg font-bold">
+                    <div className="display text-[22px]">
                       {latest.value} <span className="text-xs font-semibold text-muted-foreground">{latest.suffix}</span>
                     </div>
                     <div className="text-[11px] text-faint">

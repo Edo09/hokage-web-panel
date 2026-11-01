@@ -20,7 +20,6 @@ import {
   emptyTargets,
   foodCount,
   MEAL_TYPE_VALUES,
-  mealHasAdvanced,
   mealTypeLabel,
   rangeText,
   targetHasData,
@@ -257,9 +256,9 @@ export function aiToDraft(raw: unknown, before: MealRow[] | null): AiNutritionDr
       isOptional: m.is_optional === true,
       notes: text(m.notes, 300),
       options,
+      // UI-only: the builder opens a meal's note row when it has a note.
       advOpen: false,
     };
-    row.advOpen = mealHasAdvanced(row);
     return [row];
   });
   if (meals.length === 0) return null;

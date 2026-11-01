@@ -199,7 +199,7 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
         <Card>
           <CardHeader className="flex-row items-baseline justify-between space-y-0">
             <CardTitle>Clientes activos</CardTitle>

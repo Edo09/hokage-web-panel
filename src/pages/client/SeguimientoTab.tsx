@@ -106,7 +106,8 @@ function buildGroups(
   return [...map.values()].sort((a, b) => b.lastDate - a.lastDate);
 }
 
-const SET_GRID = 'grid gap-1.5 [grid-template-columns:64px_46px_44px_1fr_44px_44px]';
+const SET_GRID =
+  'grid gap-1 [grid-template-columns:52px_32px_36px_minmax(64px,1fr)_36px_44px] sm:gap-1.5 sm:[grid-template-columns:64px_46px_44px_1fr_44px_44px]';
 
 export function SeguimientoTab({ client }: { client: ClientWithMeta }) {
   const logsQuery = useQuery({ queryKey: qk.setLogs(client.id), queryFn: () => getClientSetLogs(client.id) });
@@ -197,25 +198,23 @@ export function SeguimientoTab({ client }: { client: ClientWithMeta }) {
         </div>
       )}
 
-      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))' }}>
         {groups.map((g) => {
           const shown = g.sets.slice(0, 8);
           return (
-            <Card key={g.key} className="p-5">
+            <Card key={g.key} className="p-4 sm:p-5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <span className="font-heading text-sm font-semibold">{g.name}</span>
                     {g.isUnilateral && (
-                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-                        POR LADO
-                      </span>
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Por lado</span>
                     )}
                   </div>
                   {g.program && <div className="mt-0.5 text-[11.5px] text-faint">{g.program}</div>}
                 </div>
                 {g.best && (
-                  <span className="flex flex-none items-center gap-1 rounded-lg bg-success-soft px-2 py-1 text-[11px] font-bold text-success">
+                  <span className="flex flex-none items-center gap-1 rounded-lg bg-success/15 px-2 py-1 text-xs font-bold text-success">
                     <TrendingUp className="h-3 w-3" strokeWidth={2.25} />
                     1RM est. {formatWeight(g.best.e1rm, unit)}
                   </span>
@@ -231,7 +230,7 @@ export function SeguimientoTab({ client }: { client: ClientWithMeta }) {
                   {g.completedWeeks.map((wk) => (
                     <span
                       key={wk}
-                      className="flex items-center gap-1 rounded-full bg-success-soft px-2 py-[3px] text-[11px] font-bold text-success"
+                      className="flex items-center gap-1 rounded-full bg-success/15 px-2 py-[3px] text-xs font-bold text-success"
                     >
                       <CheckCircle2 className="h-3 w-3" strokeWidth={2.25} />
                       Sem {wk} hecho

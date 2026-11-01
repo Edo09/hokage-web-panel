@@ -36,9 +36,14 @@ export default function Settings() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await save({ display_name: name.trim() || 'Coach', whatsapp });
-    setSaving(false);
-    toast.success('Perfil guardado');
+    try {
+      await save({ display_name: name.trim() || 'Coach', whatsapp });
+      toast.success('Perfil guardado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo guardar el perfil');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -56,6 +61,7 @@ export default function Settings() {
             <Field
               label="WhatsApp"
               htmlFor="coach-whatsapp"
+              tipLabel="Formato del número"
               tip="Solo números, con el código de país. Ej.: 18095551234"
             >
               <Input
@@ -111,7 +117,7 @@ export default function Settings() {
             <CardTitle>Preferencias</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <Field label="Pesos en" tip="Cómo ves y escribes los pesos en el panel. Siempre se guardan en kilogramos.">
+            <Field label="Pesos en" tipLabel="Sobre la unidad de peso" tip="Cómo ves y escribes los pesos en el panel. Siempre se guardan en kilogramos.">
               <Segmented<WeightUnit>
                 aria-label="Unidad de peso"
                 stretch

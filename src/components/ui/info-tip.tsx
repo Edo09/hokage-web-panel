@@ -1,12 +1,14 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 /**
  * Help on demand: a small ⓘ that holds the explanation a label would
- * otherwise spell out on screen. Opens on hover with a mouse, and on tap or
- * Enter everywhere (a plain tooltip never opens on touch).
+ * otherwise spell out on screen. Opens on hover with a mouse (and stays open
+ * while the pointer moves onto it), and on tap or Enter everywhere — a plain
+ * tooltip never opens on touch. Screen readers get the text as the button's
+ * description, without opening anything.
  */
 export function InfoTip({
   children,
@@ -21,9 +23,19 @@ export function InfoTip({
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const descId = useId();
   // Opened by a click/tap/key stays open until dismissed; opened by hover
-  // closes when the pointer leaves.
+  // closes shortly after the pointer leaves both the ⓘ and the bubble.
   const pinned = useRef(false);
+  const closeTimer = useRef<number>();
+  const cancelClose = () => window.clearTimeout(closeTimer.current);
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => {
+      if (!pinned.current) setOpen(false);
+    }, 150);
+  };
+  useEffect(() => cancelClose, []);
 
   return (
     <Popover
@@ -36,8 +48,10 @@ export function InfoTip({
       <PopoverTrigger
         type="button"
         aria-label={label}
+        aria-describedby={descId}
         onClick={(e) => {
           e.preventDefault();
+          cancelClose();
           if (open && !pinned.current) {
             pinned.current = true;
             return;
@@ -46,22 +60,34 @@ export function InfoTip({
           setOpen(!open);
         }}
         onPointerEnter={(e) => {
-          if (e.pointerType === 'mouse' && !open) setOpen(true);
+          if (e.pointerType !== 'mouse') return;
+          cancelClose();
+          if (!open) setOpen(true);
         }}
         onPointerLeave={(e) => {
-          if (e.pointerType === 'mouse' && !pinned.current) setOpen(false);
+          if (e.pointerType === 'mouse') scheduleClose();
         }}
         className={cn(
-          'inline-flex h-5 w-5 flex-none items-center justify-center rounded-full text-faint transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:text-foreground',
+          '-m-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full text-faint transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:text-foreground',
           className,
         )}
       >
         <Info className="h-[15px] w-[15px]" strokeWidth={2} />
       </PopoverTrigger>
+      <span id={descId} className="sr-only">
+        {children}
+      </span>
       <PopoverContent
         side={side}
+        aria-hidden="true"
         className="w-auto max-w-[280px] p-3 text-[13px] leading-snug text-muted-foreground"
         onOpenAutoFocus={(e) => e.preventDefault()}
+        onPointerEnter={(e) => {
+          if (e.pointerType === 'mouse') cancelClose();
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType === 'mouse') scheduleClose();
+        }}
       >
         {children}
       </PopoverContent>

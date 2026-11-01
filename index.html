@@ -18,6 +18,8 @@
       try {
         if (localStorage.getItem('hokage:theme') === 'light') {
           document.documentElement.classList.remove('dark');
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', '#f3f5f8');
         }
       } catch (e) {}
     </script>

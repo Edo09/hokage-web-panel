@@ -34,6 +34,7 @@ import { SupplementPlanBuilder } from '@/components/nutrition/SupplementPlanBuil
 import { MobileNutritionPreview } from '@/components/nutrition/MobileNutritionPreview';
 import { emptyPlanPreview, planToPreview, supplementPlanToPreview } from '@/components/nutrition/previewModel';
 import { qk } from '@/lib/queryClient';
+import { kcalText } from '@/lib/nutrition';
 import { avatarColor, matchesQuery } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -103,17 +104,6 @@ export default function Nutrition() {
 
 const toAssignees = (rows: PlanAssignment[]): PlanAssignee[] =>
   rows.map((a) => ({ key: a.plan_id, clientId: a.client_id, name: a.client_name, status: a.status, startDate: a.start_date }));
-
-/** "2200" or "2000–2400"; null when no calories are set. */
-const kcalText = (p: NutritionPlanWithDetail): string | null => {
-  const t =
-    p.nutrition_plan_targets.find((x) => x.day_type === 'training') ??
-    p.nutrition_plan_targets.find((x) => x.day_type === 'both');
-  if (!t || (t.kcal_min == null && t.kcal_max == null)) return null;
-  const a = t.kcal_min ?? t.kcal_max!;
-  const b = t.kcal_max ?? t.kcal_min!;
-  return a === b ? a.toLocaleString('en-US') : `${a.toLocaleString('en-US')}–${b.toLocaleString('en-US')}`;
-};
 
 const pdfAction = (run: () => Promise<void>) => () =>
   void run().then(
@@ -288,13 +278,13 @@ function NutritionLibrary({
           <DialogHeader>
             <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          {previewing && <MobileNutritionPreview plan={planToPreview(previewing)} />}
+          {previewing && <MobileNutritionPreview fitToViewport plan={planToPreview(previewing)} />}
         </DialogContent>
       </Dialog>
 
       <AssignClientDialog
         planName={assignTarget?.name ?? null}
-        what="plan nutricional"
+        active="su plan nutricional activo"
         onAssign={(clientId, startDate) => assignNutritionTemplate(assignTarget!.id, clientId, startDate)}
         onClose={() => setAssignTarget(null)}
         onAssigned={() => {
@@ -469,13 +459,13 @@ function SupplementLibrary({
           <DialogHeader>
             <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          {previewing && <MobileNutritionPreview plan={emptyPlanPreview()} supplements={supplementPlanToPreview(previewing)} />}
+          {previewing && <MobileNutritionPreview fitToViewport plan={emptyPlanPreview()} supplements={supplementPlanToPreview(previewing)} />}
         </DialogContent>
       </Dialog>
 
       <AssignClientDialog
         planName={assignTarget?.name ?? null}
-        what="suplementación"
+        active="su suplementación activa"
         onAssign={(clientId, startDate) => assignSupplementTemplate(assignTarget!.id, clientId, startDate)}
         onClose={() => setAssignTarget(null)}
         onAssigned={() => {
@@ -500,14 +490,14 @@ function SupplementLibrary({
 /** One dialog for both shelves — they differ only in which RPC runs. */
 function AssignClientDialog({
   planName,
-  what,
+  active,
   onAssign,
   onClose,
   onAssigned,
 }: {
   planName: string | null;
-  /** "plan nutricional" / "suplementación" — for the help text. */
-  what: string;
+  /** What the plan replaces, for the help text: "su suplementación activa". */
+  active: string;
   onAssign: (clientId: string, startDate: string) => Promise<string>;
   onClose: () => void;
   onAssigned: () => void;
@@ -523,8 +513,8 @@ function AssignClientDialog({
       open={planName != null}
       onOpenChange={(o) => !o && onClose()}
       title={`Asignar «${planName ?? ''}»`}
-      description={`Reemplaza su ${what} activo.`}
-      tip={`El cliente recibe una copia; su ${what} anterior se archiva. Editar la plantilla después no cambia su copia.`}
+      description={`Reemplaza ${active}.`}
+      tip={`El cliente recibe una copia y ${active} pasa al historial. Editar la plantilla después no cambia su copia.`}
       pickLabel="Cliente"
       searchPlaceholder="Buscar cliente"
       emptyText="Aún no tienes clientes."

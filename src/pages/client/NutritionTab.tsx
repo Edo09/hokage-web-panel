@@ -48,7 +48,8 @@ import { emptyPlanPreview, planToPreview, supplementPlanToPreview } from '@/comp
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
 import { mealPhotoUrl } from '@/lib/mealPhotos';
 import { qk } from '@/lib/queryClient';
-import { cn, fmtDate, MEAL_TYPE_LABELS, relTime } from '@/lib/utils';
+import { kcalText } from '@/lib/nutrition';
+import { cn, fmtDate, MEAL_TYPE_LABELS, plural, relTime } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -138,14 +139,14 @@ export function NutritionTab({ client, onChanged }: { client: ClientWithMeta; on
         <SectionHeader
           id="nt-log"
           title="Lo que ha comido"
-          tip="Lo que registra desde la app, con foto. Las calorías y los macros los calcula la app a partir de la foto."
+          tip="Lo que registra en la app, con foto o a mano. Las calorías y los macros los calcula la app."
         />
         {client.meals.length === 0 ? (
           <Card className="border-dashed">
             <EmptyState
               icon={Camera}
               title="Aún no ha registrado comidas"
-              description={`Cuando ${(client.display_name ?? client.email).split(' ')[0]} suba fotos de sus platos, aparecerán aquí.`}
+              description={`Cuando ${(client.display_name ?? client.email).split(' ')[0]} registre comidas en la app, aparecerán aquí.`}
             />
           </Card>
         ) : (
@@ -217,6 +218,7 @@ function CalorieGoal({ client, onChanged }: { client: ClientWithMeta; onChanged:
         </div>
       ) : (
         <form
+          noValidate
           className="flex flex-wrap items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
@@ -229,7 +231,6 @@ function CalorieGoal({ client, onChanged }: { client: ClientWithMeta; onChanged:
               inputMode="numeric"
               min={800}
               max={6000}
-              step={50}
               aria-label="Meta de calorías"
               className="w-[140px] pr-12 text-[15px] font-semibold"
               value={input}
@@ -399,10 +400,7 @@ function NutritionPlanSection({ client, onChanged }: { client: ClientWithMeta; o
       (a, m) => a + m.nutrition_plan_options.reduce((b, o) => b + o.nutrition_plan_option_items.length, 0),
       0,
     );
-    const t =
-      plan.nutrition_plan_targets.find((x) => x.day_type === 'training') ??
-      plan.nutrition_plan_targets.find((x) => x.day_type === 'both');
-    const kcal = t ? (t.kcal_max ?? t.kcal_min) : null;
+    const kcal = kcalText(plan);
     const menu: PlanMenuItem[] = [
       { label: 'Vista previa', icon: Smartphone, onSelect: () => setPreviewing(plan) },
       {
@@ -425,7 +423,7 @@ function NutritionPlanSection({ client, onChanged }: { client: ClientWithMeta; o
         facts={[
           { value: plan.nutrition_plan_meals.length, label: plan.nutrition_plan_meals.length === 1 ? 'comida' : 'comidas' },
           { value: foods, label: foods === 1 ? 'alimento' : 'alimentos' },
-          ...(kcal != null ? [{ value: kcal.toLocaleString('en-US'), label: 'kcal' }] : []),
+          ...(kcal != null ? [{ value: kcal, label: 'kcal' }] : []),
         ]}
         tags={
           <>
@@ -480,13 +478,13 @@ function NutritionPlanSection({ client, onChanged }: { client: ClientWithMeta; o
           <DialogHeader>
             <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          {previewing && <MobileNutritionPreview plan={planToPreview(previewing)} />}
+          {previewing && <MobileNutritionPreview fitToViewport plan={planToPreview(previewing)} />}
         </DialogContent>
       </Dialog>
 
       <SaveAsTemplateDialog
         planName={saveAsTemplate?.name ?? null}
-        clientName={client.display_name?.split(' ')[0] ?? 'el cliente'}
+        clientName={(client.display_name ?? client.email).split(' ')[0]}
         onClose={() => setSaveAsTemplate(null)}
         onSave={(name) => saveNutritionPlanAsTemplate(saveAsTemplate!.id, name)}
         invalidateKey={qk.nutritionTemplates}
@@ -496,10 +494,12 @@ function NutritionPlanSection({ client, onChanged }: { client: ClientWithMeta; o
       <TemplatePicker
         open={pickerOpen}
         title="Asignar plan nutricional"
+        active="su plan nutricional activo"
+        assigned="Plan nutricional asignado"
         templates={templates?.filter((t) => t.status === 'active').map((t) => ({
           id: t.id,
           title: t.name,
-          subtitle: `${t.nutrition_plan_meals.length} comidas${t.focus ? ` · ${t.focus}` : ''}`,
+          subtitle: [plural(t.nutrition_plan_meals.length, 'comida', 'comidas'), t.focus].filter(Boolean).join(', '),
         }))}
         onAssign={(templateId, startDate) => assignNutritionTemplate(templateId, client.id, startDate)}
         onClose={() => setPickerOpen(false)}
@@ -659,13 +659,13 @@ function SupplementPlanSection({ client, onChanged }: { client: ClientWithMeta; 
           <DialogHeader>
             <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          {previewing && <MobileNutritionPreview plan={emptyPlanPreview()} supplements={supplementPlanToPreview(previewing)} />}
+          {previewing && <MobileNutritionPreview fitToViewport plan={emptyPlanPreview()} supplements={supplementPlanToPreview(previewing)} />}
         </DialogContent>
       </Dialog>
 
       <SaveAsTemplateDialog
         planName={saveAsTemplate?.name ?? null}
-        clientName={client.display_name?.split(' ')[0] ?? 'el cliente'}
+        clientName={(client.display_name ?? client.email).split(' ')[0]}
         onClose={() => setSaveAsTemplate(null)}
         onSave={(name) => saveSupplementPlanAsTemplate(saveAsTemplate!.id, name)}
         invalidateKey={qk.supplementTemplates}
@@ -675,10 +675,12 @@ function SupplementPlanSection({ client, onChanged }: { client: ClientWithMeta; 
       <TemplatePicker
         open={pickerOpen}
         title="Asignar suplementación"
+        active="su suplementación activa"
+        assigned="Suplementación asignada"
         templates={templates?.filter((t) => t.status === 'active').map((t) => ({
           id: t.id,
           title: t.name,
-          subtitle: `${t.supplement_plan_items.length} suplementos`,
+          subtitle: plural(t.supplement_plan_items.length, 'suplemento', 'suplementos'),
         }))}
         onAssign={(templateId, startDate) => assignSupplementTemplate(templateId, client.id, startDate)}
         onClose={() => setPickerOpen(false)}
@@ -784,6 +786,8 @@ function SaveAsTemplateDialog({
 function TemplatePicker({
   open,
   title,
+  active,
+  assigned,
   templates,
   onAssign,
   onClose,
@@ -791,6 +795,10 @@ function TemplatePicker({
 }: {
   open: boolean;
   title: string;
+  /** What gets replaced, with agreement: "su suplementación activa". */
+  active: string;
+  /** The toast: "Suplementación asignada". */
+  assigned: string;
   /** Undefined while loading. */
   templates: { id: string; title: string; subtitle?: string }[] | undefined;
   onAssign: (templateId: string, startDate: string) => Promise<string>;
@@ -802,8 +810,8 @@ function TemplatePicker({
       open={open}
       onOpenChange={(o) => !o && onClose()}
       title={title}
-      description="Reemplaza su plan activo."
-      tip="Recibe una copia de la plantilla; su plan activo anterior se archiva."
+      description={`Reemplaza ${active}.`}
+      tip={`Recibe una copia de la plantilla y ${active} pasa al historial.`}
       pickLabel="Plantilla"
       searchPlaceholder="Buscar plantilla"
       emptyText="No tienes plantillas activas. Créalas en Nutrición."
@@ -811,7 +819,7 @@ function TemplatePicker({
       submitLabel={() => 'Asignar'}
       onSubmit={async (templateId, startDate) => {
         await onAssign(templateId, startDate);
-        toast.success('Plan asignado');
+        toast.success(assigned);
         onAssigned();
       }}
     />

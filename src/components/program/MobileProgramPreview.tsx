@@ -81,7 +81,7 @@ export function MobileProgramPreview({
   })();
 
   return (
-    <div className="mx-auto w-[336px] flex-none">
+    <div className="mx-auto w-full max-w-[336px] flex-none">
       {/* device shell */}
       <div
         className="overflow-hidden rounded-[34px] border-[9px] shadow-2xl"

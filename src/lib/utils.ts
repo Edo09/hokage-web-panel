@@ -138,3 +138,6 @@ export function matchesQuery(query: string, ...fields: (string | null | undefine
   const q = norm(query.trim());
   return !q || fields.some((f) => f != null && norm(f).includes(q));
 }
+
+/** "1 comida" / "3 comidas". */
+export const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;

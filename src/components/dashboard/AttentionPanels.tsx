@@ -41,14 +41,14 @@ export function AttentionList({ items, loading }: { items: AttentionItem[] | nul
         ) : (
           <>
             {shown.map((it, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5">
+              <div key={i} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-background px-3 py-2.5">
                 <span
                   aria-hidden="true"
                   className={cn('flex h-10 w-10 flex-none items-center justify-center rounded-full text-[13px] font-bold', TONE[it.tone].tile)}
                 >
                   {initials(nameOf(it.client))}
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-[calc(100%-52px)] sm:basis-0">
                   <div className="truncate text-sm font-semibold">
                     <Link to={`/clients/${it.client.id}`} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                       {nameOf(it.client)}
@@ -62,14 +62,14 @@ export function AttentionList({ items, loading }: { items: AttentionItem[] | nul
                     href={it.action.href}
                     target="_blank"
                     rel="noreferrer"
-                    className={cn('flex h-9 flex-none items-center rounded-lg border px-3 text-[13px] font-semibold transition-colors', TONE[it.tone].action)}
+                    className={cn('ml-[52px] flex h-9 flex-none items-center rounded-lg border px-3 text-[13px] font-semibold transition-colors sm:ml-0', TONE[it.tone].action)}
                   >
                     {it.action.label}
                   </a>
                 ) : (
                   <Link
                     to={it.action.href}
-                    className={cn('flex h-9 flex-none items-center rounded-lg border px-3 text-[13px] font-semibold transition-colors', TONE[it.tone].action)}
+                    className={cn('ml-[52px] flex h-9 flex-none items-center rounded-lg border px-3 text-[13px] font-semibold transition-colors sm:ml-0', TONE[it.tone].action)}
                   >
                     {it.action.label}
                   </Link>
@@ -108,8 +108,11 @@ export function ConsistencyGrid({
   return (
     <Card className="flex flex-col">
       <CardHeader className="flex-row items-baseline justify-between space-y-0">
-        <CardTitle>Constancia, últimos 14 días</CardTitle>
-        <span className="text-xs text-faint">un cuadro por día</span>
+        <CardTitle>Constancia</CardTitle>
+        <span className="text-xs text-faint">
+          últimos <span className="sm:hidden">7</span>
+          <span className="hidden sm:inline">14</span> días
+        </span>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-2">
         {loading || !pulse ? (
@@ -120,7 +123,11 @@ export function ConsistencyGrid({
           <>
             <div role="table" aria-label="Días entrenados por cliente" className="flex flex-col gap-1">
               {rows.map(({ c, active, count }) => (
-                <div role="row" key={c.id} className="grid items-center gap-1 [grid-template-columns:112px_repeat(14,minmax(0,1fr))_28px]">
+                <div
+                  role="row"
+                  key={c.id}
+                  className="grid items-center gap-1 [grid-template-columns:96px_repeat(7,minmax(0,1fr))_24px] sm:[grid-template-columns:112px_repeat(14,minmax(0,1fr))_28px]"
+                >
                   <Link
                     role="rowheader"
                     to={`/clients/${c.id}`}
@@ -129,13 +136,18 @@ export function ConsistencyGrid({
                     <span aria-hidden="true" className="h-2 w-2 flex-none rounded-full" style={{ background: avatarColor(c.id) }} />
                     <span className="truncate">{nameOf(c)}</span>
                   </Link>
-                  {days.map((d) => (
+                  {days.map((d, di) => (
                     <span
                       role="cell"
                       key={d}
                       title={`${d}${active.has(d) ? ' · entrenó' : ''}`}
                       aria-label={active.has(d) ? `${d}: entrenó` : `${d}: sin sesión`}
-                      className={cn('h-5 rounded-[3px]', active.has(d) ? 'bg-success' : 'bg-muted', d === today && 'outline outline-1 outline-offset-1 outline-border-strong')}
+                      className={cn(
+                        'h-5 rounded-[3px]',
+                        di < days.length - 7 && 'hidden sm:block',
+                        active.has(d) ? 'bg-success' : 'bg-muted',
+                        d === today && 'outline outline-1 outline-offset-1 outline-border-strong',
+                      )}
                     />
                   ))}
                   <span role="cell" className="text-right text-[11.5px] font-bold tabular-nums">

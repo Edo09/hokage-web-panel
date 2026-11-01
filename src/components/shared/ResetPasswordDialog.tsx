@@ -64,7 +64,11 @@ export function ResetPasswordDialog({
                 al instante.
               </DialogDescription>
             </DialogHeader>
-            {error && <p className="text-[12.5px] text-primary">{error}</p>}
+            {error && (
+              <p role="alert" className="text-[13px] text-destructive">
+                {error}
+              </p>
+            )}
             <DialogFooter className="mt-2">
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                 Cancelar

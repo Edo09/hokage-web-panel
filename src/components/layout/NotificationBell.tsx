@@ -19,7 +19,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 /** The Dashboard attention list's tiles (components/dashboard/AttentionPanels). */
 const TILE: Record<AttentionTone, string> = {
-  danger: 'bg-primary/15 text-primary',
+  danger: 'bg-destructive/15 text-destructive',
   warning: 'bg-warning/15 text-warning',
   info: 'bg-secondary/15 text-secondary',
   success: 'bg-success/15 text-success',
@@ -159,8 +159,8 @@ export function NotificationBell() {
             <button
               onClick={() => openNotice(n)}
               className={cn(
-                'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted focus-visible:bg-muted focus-visible:outline-none',
-                !n.read_at && 'bg-primary/[0.04]',
+                'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                !n.read_at && 'bg-foreground/[0.03]',
               )}
             >
               <span
@@ -176,7 +176,12 @@ export function NotificationBell() {
                 <span className="block truncate text-[12px] text-faint">{v.detail}</span>
                 <span className="mt-0.5 block text-[11px] text-faint">{noticeTime(n.created_at)}</span>
               </span>
-              {!n.read_at && <span aria-label="Sin leer" className="mt-1.5 h-2 w-2 flex-none rounded-full bg-primary" />}
+              {!n.read_at && (
+                <>
+                  <span aria-hidden="true" className="mt-1.5 h-2 w-2 flex-none rounded-full bg-primary" />
+                  <span className="sr-only">Sin leer</span>
+                </>
+              )}
             </button>
           </li>
         );

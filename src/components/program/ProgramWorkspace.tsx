@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useRef, useState, type DragEvent, type ReactNode, type RefObject } from 'react';
+import { Fragment, useMemo, useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -213,6 +213,7 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
       kicker={kicker}
       title={title}
       onClose={cancel}
+      dirty={b.hasChanges()}
       actions={
         <>
           <Button variant="ghost" size="sm" onClick={() => setAiOpen(true)} disabled={!b.catalog?.length} aria-label={aiLabel} className="text-foreground">
@@ -270,6 +271,7 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
               }}
             />
 
+            <div id="pw-day-panel" role="tabpanel" aria-labelledby={`pw-day-tab-${dayIdx}`} className="flex flex-col gap-3">
             <div className="flex flex-wrap items-end gap-2">
               <Field id="pw-day-label" label={`Nombre del día ${dayIdx + 1}`} className="min-w-[200px] flex-1">
                 <Input
@@ -318,6 +320,7 @@ export function ProgramWorkspace(props: ProgramBuilderProps) {
             />
 
             <VolumeCard b={b} dayIdx={dayIdx} week={week} weekNumber={Math.min(selWeek, b.weeks.length - 1) + 1} />
+            </div>
           </section>
 
           <aside aria-label="Vista previa en la app" className="hidden 2xl:block">
@@ -405,7 +408,7 @@ function WorkspaceHeader({
           onChange={(e) => b.setName(e.target.value)}
           placeholder="Nombre del programa"
           autoFocus={!b.initial}
-          className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint/50 hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
+          className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
         />
         <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
           <span>{b.summaryText}</span>
@@ -535,7 +538,7 @@ function Field({
     <div className={cn('flex flex-col gap-1.5', className)}>
       <div className="flex items-center gap-1.5">
         <Label htmlFor={id}>{label}</Label>
-        {tip && <InfoTip label={`Qué es «${label}»`}>{tip}</InfoTip>}
+        {tip && <InfoTip label={`Más sobre «${label}»`}>{tip}</InfoTip>}
       </div>
       {children}
     </div>
@@ -618,7 +621,7 @@ function PeriodizationStrip({
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="listbox" aria-label="Semanas">
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Semanas">
         {b.weeks.map((wk, i) => {
           const load = toInt(wk.loadMax) ?? toInt(wk.loadMin);
           const active = i === sel;
@@ -626,12 +629,12 @@ function PeriodizationStrip({
             <button
               key={i}
               type="button"
-              role="option"
-              aria-selected={active}
+              aria-pressed={active}
+              aria-controls="pw-week-editor"
               onClick={() => onSelect(i)}
               className={cn(
                 'flex w-[132px] flex-none flex-col gap-1.5 rounded-lg border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                active ? 'border-2 border-primary bg-card' : 'border-border bg-background hover:border-border-strong',
+                active ? 'border-2 border-foreground bg-card' : 'border-border bg-background hover:border-border-strong',
                 wk.isDeload && 'bg-[repeating-linear-gradient(135deg,transparent_0_8px,hsl(var(--muted)/0.45)_8px_16px)]',
               )}
             >
@@ -644,7 +647,7 @@ function PeriodizationStrip({
               </span>
               <span className="flex h-12 items-end overflow-hidden rounded bg-field p-1" aria-hidden="true">
                 <span
-                  className={cn('block w-full rounded-sm', wk.isDeload ? 'bg-faint/50' : active ? 'bg-primary' : 'bg-foreground/30')}
+                  className={cn('block w-full rounded-sm', wk.isDeload ? 'bg-faint/50' : active ? 'bg-foreground' : 'bg-foreground/30')}
                   style={{ height: `${load != null ? Math.max(6, Math.min(100, load)) : 6}%` }}
                 />
               </span>
@@ -658,8 +661,15 @@ function PeriodizationStrip({
       </div>
 
       {w && (
-        <div className="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3">
-          <span className="display self-center text-[17px]">Sem {sel + 1}</span>
+        <div
+          id="pw-week-editor"
+          role="region"
+          aria-labelledby="pw-week-editor-title"
+          className="mt-3 flex flex-wrap items-end gap-3 border-t border-border pt-3"
+        >
+          <span id="pw-week-editor-title" className="display self-center text-[17px]">
+            Sem {sel + 1}
+          </span>
           <Field id="pw-week-label" label="Etiqueta">
             <Input
               id="pw-week-label"
@@ -694,7 +704,10 @@ function PeriodizationStrip({
           <div className="flex flex-col gap-1.5">
             <span className="flex items-center gap-1.5">
               <span className={CAPS}>Series</span>
-              <InfoTip label="Series de la semana">Si lo rellenas, todos los ejercicios llevan estas series esa semana.</InfoTip>
+              <InfoTip label="Series de la semana">
+                Si lo rellenas, los ejercicios llevan estas series esa semana, salvo los que tengan su propio ajuste para esa
+                semana.
+              </InfoTip>
             </span>
             {num('setsOverride', 'series para toda la semana', 1, 20)}
           </div>
@@ -752,11 +765,12 @@ function ExerciseLibrary({ catalog, onAdd }: { catalog: Exercise[] | null; onAdd
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="-ml-1 flex items-center gap-1 rounded-md px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:pointer-events-none"
+            className="-ml-1 flex items-center gap-1 rounded-md px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
           >
-            <ChevronDown className={cn('h-4 w-4 transition-transform lg:hidden', !open && '-rotate-90')} />
+            <ChevronDown className={cn('h-4 w-4 transition-transform', !open && '-rotate-90')} />
             Biblioteca
           </button>
+          <span className="hidden lg:inline">Biblioteca</span>
         </h2>
         <span className="flex items-center gap-1.5 text-xs tabular-nums text-faint">
           {catalog ? list.length : '…'}
@@ -845,17 +859,36 @@ function DayTabs({
   onSelect: (i: number) => void;
   onAdd: () => void;
 }) {
+  const refs = useRef<(HTMLButtonElement | null)[]>([]);
+  const go = (to: number) => {
+    const next = (to + days.length) % days.length;
+    onSelect(next);
+    refs.current[next]?.focus();
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const to =
+      e.key === 'ArrowRight' ? active + 1 : e.key === 'ArrowLeft' ? active - 1 : e.key === 'Home' ? 0 : e.key === 'End' ? days.length - 1 : null;
+    if (to == null) return;
+    e.preventDefault();
+    go(to);
+  };
+
   return (
-    <div className="flex items-stretch gap-2 overflow-x-auto pb-1 pl-1" role="tablist" aria-label="Días del programa">
+    <div className="flex items-stretch gap-2 overflow-x-auto pb-1 pl-1">
+      <div role="tablist" aria-label="Días del programa" onKeyDown={onKeyDown} className="flex items-stretch gap-2">
       {days.map((d, i) => {
         const isActive = i === active;
         const count = d.exercises.filter((x) => x.name.trim()).length;
         return (
           <button
             key={i}
+            ref={(el) => (refs.current[i] = el)}
+            id={`pw-day-tab-${i}`}
             type="button"
             role="tab"
             aria-selected={isActive}
+            aria-controls="pw-day-panel"
+            tabIndex={isActive ? 0 : -1}
             onClick={() => onSelect(i)}
             className={cn(
               'flex-none text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -869,7 +902,7 @@ function DayTabs({
               </span>
               <span className="flex max-w-[200px] items-center gap-1.5 text-[13px] font-semibold">
                 <span className="truncate">{d.label.trim() || 'Sin nombre'}</span>
-                <span className={cn('flex-none rounded-full px-1.5 text-[11px] tabular-nums', isActive ? 'bg-white/20' : 'bg-muted text-muted-foreground')}>
+                <span className={cn('flex-none rounded-full px-1.5 text-[11px] tabular-nums', isActive ? 'bg-black/25' : 'bg-muted text-muted-foreground')}>
                   {count}
                 </span>
               </span>
@@ -877,6 +910,7 @@ function DayTabs({
           </button>
         );
       })}
+      </div>
       <button
         type="button"
         onClick={onAdd}

@@ -60,6 +60,8 @@ export default function Clients() {
       </div>
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="md:overflow-x-auto">
+        <div className="md:min-w-[780px]">
         <div className={cn(GRID, 'hidden border-b border-border px-5 py-3 text-xs font-medium text-faint md:grid')}>
           <span>Cliente</span>
           <span>Membresía</span>
@@ -91,7 +93,9 @@ export default function Clients() {
                   <span className="min-w-0">
                     <span className="block truncate font-semibold">{c.display_name ?? c.email}</span>
                     <span className="block truncate text-xs text-faint md:hidden">
-                      <span className={TONE_CLASS[exp.tone]}>{exp.label === '—' ? 'Sin membresía' : exp.label}</span>
+                      <span className={TONE_CLASS[exp.tone]}>
+                        {!c.membership ? 'Sin membresía' : !c.membership.expires_at ? 'Sin vencimiento' : exp.label}
+                      </span>
                     </span>
                     <span className="hidden truncate text-xs text-faint md:block">{c.email}</span>
                   </span>
@@ -120,6 +124,8 @@ export default function Clients() {
             );
           })
         )}
+        </div>
+        </div>
 
         {isError && (
           <EmptyState icon={AlertCircle} title="No se pudieron cargar tus clientes" description="Revisa tu conexión e inténtalo otra vez.">

@@ -3,9 +3,9 @@ import { cn, STATUS_LABELS } from '@/lib/utils';
 
 const STYLES: Record<MembershipStatus, string> = {
   active: 'bg-success/15 text-success',
-  expired: 'bg-primary/10 text-primary dark:bg-primary/15',
+  expired: 'bg-destructive/15 text-destructive',
   paused: 'bg-warning/15 text-warning',
-  cancelled: 'bg-muted text-faint',
+  cancelled: 'bg-muted text-muted-foreground',
 };
 
 export function StatusBadge({ status, className }: { status: MembershipStatus; className?: string }) {
@@ -22,25 +22,17 @@ export function StatusBadge({ status, className }: { status: MembershipStatus; c
   );
 }
 
-/** COACH (red) vs PROPIA (blue) — who owns a routine or meal. */
+/** Coach (ink) vs Propia (blue) — who owns a routine or meal. */
 export function OwnerBadge({ assignedBy, className }: { assignedBy: string | null; className?: string }) {
-  return assignedBy ? (
+  return (
     <span
       className={cn(
-        'inline-flex flex-none rounded-full bg-primary/10 px-2 py-[3px] text-[10.5px] font-bold tracking-wide text-primary dark:bg-primary/15',
+        'inline-flex flex-none rounded-full px-2 py-0.5 text-xs font-semibold',
+        assignedBy ? 'bg-muted text-foreground' : 'bg-secondary/15 text-secondary',
         className,
       )}
     >
-      COACH
-    </span>
-  ) : (
-    <span
-      className={cn(
-        'inline-flex flex-none rounded-full bg-secondary/10 px-2 py-[3px] text-[10.5px] font-bold tracking-wide text-secondary dark:bg-secondary/15',
-        className,
-      )}
-    >
-      PROPIA
+      {assignedBy ? 'Coach' : 'Propia'}
     </span>
   );
 }

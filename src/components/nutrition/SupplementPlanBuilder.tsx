@@ -130,12 +130,13 @@ export function SupplementPlanBuilder({
   const nameRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const firstName = client?.display_name?.split(' ')[0] ?? 'el cliente';
+  const firstName = client?.display_name?.split(' ')[0] || client?.email.split('@')[0] || 'este cliente';
 
   const current = { name, description, startDate, status, notes, items };
   const savedSig = useRef<string | null>(null);
   if (savedSig.current === null) savedSig.current = signature(current);
-  const requestClose = () => (signature(current) !== savedSig.current ? setConfirmClose(true) : onClose());
+  const dirty = signature(current) !== savedSig.current;
+  const requestClose = () => (dirty ? setConfirmClose(true) : onClose());
 
   const updItem = (ii: number, patch: Partial<ItemRow>) =>
     setItems((xs) => xs.map((x, i) => (i === ii ? { ...x, ...patch } : x)));
@@ -226,6 +227,7 @@ export function SupplementPlanBuilder({
       kicker={isTemplate ? 'Suplementación · plantilla' : `Suplementación de ${firstName}`}
       title={isTemplate ? (initial ? 'Editar plantilla' : 'Nueva plantilla') : initial ? 'Editar suplementación' : 'Nueva suplementación'}
       onClose={requestClose}
+      dirty={dirty}
       actions={
         <Button variant="ghost" size="sm" onClick={() => setPreviewOpen(true)} aria-label="Vista previa" className="text-foreground xl:hidden">
           <Smartphone />
@@ -262,14 +264,15 @@ export function SupplementPlanBuilder({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre del stack"
                 autoFocus={!initial}
-                className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint/50 hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
+                className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
               />
-              <input
+              <textarea
                 aria-label="Descripción"
+                rows={1}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Añade una descripción, ej. Fase de definición"
-                className="inline-input -mx-2 mt-1 h-9 max-w-xl text-[15px] text-muted-foreground"
+                className="inline-input -mx-2 mt-1 block min-h-9 max-w-xl resize-none text-[15px] leading-snug text-muted-foreground [field-sizing:content]"
               />
             </div>
             {!isTemplate && (
@@ -381,7 +384,7 @@ export function SupplementPlanBuilder({
           <DialogHeader>
             <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          <MobileNutritionPreview plan={emptyPlanPreview()} supplements={preview} />
+          <MobileNutritionPreview fitToViewport plan={emptyPlanPreview()} supplements={preview} />
         </DialogContent>
       </Dialog>
     </FocusEditor>
@@ -496,18 +499,18 @@ function SupplementRow({
 
       {item.advOpen && (
         <div className="mt-3 grid gap-3 pl-12 sm:grid-cols-2">
-          <Field label="Cuándo, en detalle" optional>
+          <Field label="Cuándo, en detalle" optional htmlFor={`sb-${ii}-timing`}>
             <Input
-              aria-label="Detalle del horario"
+              id={`sb-${ii}-timing`}
               placeholder="Ej. 30–45 min antes de entrenar"
               value={item.timingNote}
               onChange={(e) => onPatch({ timingNote: e.target.value })}
               className="h-9"
             />
           </Field>
-          <Field label="Días">
+          <Field label="Días" htmlFor={`sb-${ii}-days`}>
             <Select value={item.appliesTo} onValueChange={(v) => onPatch({ appliesTo: v as DayType })}>
-              <SelectTrigger aria-label="Días en que aparece" className="h-9">
+              <SelectTrigger id={`sb-${ii}-days`} className="h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -523,18 +526,18 @@ function SupplementRow({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Para qué" optional>
+          <Field label="Para qué" optional htmlFor={`sb-${ii}-purpose`}>
             <Input
-              aria-label="Objetivo"
+              id={`sb-${ii}-purpose`}
               placeholder="Ej. Fuerza y volumen muscular"
               value={item.purpose}
               onChange={(e) => onPatch({ purpose: e.target.value })}
               className="h-9"
             />
           </Field>
-          <Field label="Nota" optional>
+          <Field label="Nota" optional htmlFor={`sb-${ii}-notes`}>
             <Input
-              aria-label="Nota"
+              id={`sb-${ii}-notes`}
               placeholder="Ej. No requiere fase de carga"
               value={item.notes}
               onChange={(e) => onPatch({ notes: e.target.value })}

@@ -313,18 +313,23 @@ function ExerciseRow({ ex, showGroup, onEdit }: { ex: Exercise; showGroup: boole
       ? muscleLabel
       : null;
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5">
+    <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
       <Thumb url={ex.video_url} />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-semibold">{ex.name}</div>
-        {sub && <div className="text-[11.5px] text-faint">{sub}</div>}
+        <div className="line-clamp-2 text-sm font-semibold sm:truncate">{ex.name}</div>
+        {sub && <div className="text-xs text-faint">{sub}</div>}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 sm:hidden">
+          <Flag on={!!ex.video_url} icon={Film} label="Demo" />
+          <Flag on={hasSteps} icon={ListChecks} label="Pasos" />
+        </div>
       </div>
-      <div className="flex flex-none items-center gap-1.5">
+      <div className="hidden flex-none items-center gap-1.5 sm:flex">
         <Flag on={!!ex.video_url} icon={Film} label="Demo" />
         <Flag on={hasSteps} icon={ListChecks} label="Pasos" />
       </div>
-      <Button variant="outline" size="sm" className="flex-none" onClick={onEdit}>
-        <Pencil className="h-3.5 w-3.5" strokeWidth={2} /> Editar
+      <Button variant="outline" size="sm" className="flex-none" onClick={onEdit} aria-label={`Editar ${ex.name}`}>
+        <Pencil strokeWidth={2} />
+        <span className="hidden sm:inline">Editar</span>
       </Button>
     </div>
   );
@@ -334,7 +339,7 @@ function ExerciseRow({ ex, showGroup, onEdit }: { ex: Exercise; showGroup: boole
  *  video, or the barbell placeholder. Lazy so a long catalog doesn't load
  *  every clip at once. */
 function Thumb({ url }: { url: string | null }) {
-  const base = 'h-24 w-24 flex-none rounded-xl border border-border bg-muted object-cover';
+  const base = 'h-16 w-16 flex-none rounded-xl border border-border bg-muted object-cover sm:h-24 sm:w-24';
   if (url && IS_IMG.test(url.split('?')[0])) {
     return <img src={url} alt="" loading="lazy" className={base} />;
   }
@@ -342,7 +347,7 @@ function Thumb({ url }: { url: string | null }) {
     return <video src={url} className={base} muted loop autoPlay playsInline preload="metadata" />;
   }
   return (
-    <span className="flex h-24 w-24 flex-none items-center justify-center rounded-xl bg-muted text-faint">
+    <span className="flex h-16 w-16 flex-none items-center justify-center rounded-xl bg-muted text-faint sm:h-24 sm:w-24">
       <Dumbbell className="h-8 w-8" strokeWidth={1.7} />
     </span>
   );

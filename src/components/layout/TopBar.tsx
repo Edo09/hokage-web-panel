@@ -22,15 +22,15 @@ export function TopBar({ title }: { title: string }) {
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur-md">
-      <div className="mx-auto flex h-14 w-full max-w-[1320px] items-center gap-3 px-4 sm:px-6 md:h-16 lg:px-8">
+      <div className="mx-auto flex h-14 w-full max-w-[1320px] items-center gap-3 px-4 sm:px-6 md:h-16 md:pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-8 lg:pr-[max(2rem,env(safe-area-inset-right))]">
         <img src="/logo.jpg" alt="" className="h-8 w-8 flex-none rounded-md border border-border object-cover md:hidden" />
-        <h1 className="display min-w-0 truncate pt-0.5 text-[24px] md:text-[30px]">{title}</h1>
+        <h1 className="display min-w-0 truncate pt-0.5 text-[24px] leading-[1.3] md:text-[30px]">{title}</h1>
 
         <div className="ml-auto flex flex-none items-center gap-1.5">
           <NotificationBell />
           <DropdownMenu>
             <DropdownMenuTrigger
-              aria-label="Tu cuenta"
+              aria-label={`${coach.display_name}, tu cuenta`}
               className="flex h-10 items-center gap-2.5 rounded-lg pl-1 pr-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:pr-3"
             >
               <span aria-hidden="true" className="flex h-8 w-8 items-center justify-center rounded-full bg-foreground text-[13px] font-bold text-background">

@@ -98,7 +98,7 @@ export interface MealRow {
   isOptional: boolean;
   notes: string;
   options: OptionRow[];
-  /** UI-only: whether the slot's advanced disclosure is expanded. Not sent. */
+  /** UI-only: whether the builder shows the meal's note row. Not sent. */
   advOpen: boolean;
 }
 export interface TargetRow {
@@ -162,29 +162,12 @@ export const emptyTargets = (): Record<DayType, TargetRow> => ({
 
 export const targetHasData = (t: TargetRow): boolean => Object.values(t).some((v) => v.trim() !== '');
 
-/** Whether a slot's advanced fields have anything set (what opens the disclosure). */
-export const mealHasAdvanced = (m: MealRow): boolean =>
-  m.appliesTo !== 'both' || m.isOptional || !!m.timeHint.trim() || !!m.notes.trim();
-
-/** What's set behind a collapsed "Avanzado" — shown next to the toggle so
- *  configured values are never invisible. */
-export const advSummary = (m: MealRow): string => {
-  const parts: string[] = [];
-  if (m.appliesTo !== 'both') {
-    parts.push(APPLIES_TO.find((a) => a.value === m.appliesTo)?.label.toLowerCase() ?? '');
-  }
-  if (m.isOptional) parts.push('opcional');
-  if (m.timeHint.trim()) parts.push(m.timeHint.trim());
-  if (m.notes.trim()) parts.push('con nota');
-  return parts.filter(Boolean).join(' · ');
-};
-
 /** Foods with a name, across the whole plan. */
 export const foodCount = (meals: MealRow[]): number =>
   meals.reduce((a, m) => a + m.options.reduce((b, o) => b + o.foods.filter((f) => f.name.trim()).length, 0), 0);
 
 /** Compares drafts by content. Ignores advOpen, which only records whether a
- *  slot's "Avanzado" disclosure is expanded. */
+ *  meal's note row is open in the builder. */
 export const draftSignature = (d: NutritionDraft): string =>
   JSON.stringify(d, (key, value: unknown) => (key === 'advOpen' ? undefined : value));
 

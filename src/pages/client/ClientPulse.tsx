@@ -144,7 +144,7 @@ function BlockTimeline({
         </button>
       </CardHeader>
       <CardContent>
-        <ol className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(weeks.length, 8)}, minmax(0, 1fr))` }}>
+        <ol className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 lg:grid-cols-8">
           {weeks.map((w) => {
             const past = w.n < current;
             const now = w.n === current;
@@ -153,13 +153,13 @@ function BlockTimeline({
               <li
                 key={w.n}
                 className={cn(
-                  'flex flex-col gap-0.5 rounded-lg border p-2',
+                  'flex min-w-0 flex-col gap-0.5 overflow-hidden rounded-lg border p-2',
                   now ? 'border-2 border-primary bg-primary/10' : past ? (good ? 'border-success/40 bg-success/10' : 'border-warning/40 bg-warning/10') : 'border-border bg-background',
                   w.deload && !now && 'border-dashed',
                 )}
               >
-                <span className="display text-[15px]">Sem {w.n}</span>
-                <span className={cn('text-[11.5px] font-bold tabular-nums', past ? (good ? 'text-success' : 'text-warning') : now ? 'text-foreground' : 'text-faint')}>
+                <span className="display truncate text-[15px]">Sem {w.n}</span>
+                <span className={cn('truncate text-xs font-bold tabular-nums', past ? (good ? 'text-success' : 'text-warning') : now ? 'text-foreground' : 'text-faint')}>
                   {past || now ? `${w.done}/${perWeek} días` : w.deload ? 'Descarga' : (w.label ?? '—')}
                 </span>
               </li>

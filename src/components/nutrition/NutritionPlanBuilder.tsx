@@ -51,6 +51,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { FocusEditor } from '@/components/shared/FocusEditor';
 import { DiscardChangesDialog } from '@/components/shared/DiscardChangesDialog';
 import { MobileNutritionPreview } from '@/components/nutrition/MobileNutritionPreview';
@@ -103,13 +113,16 @@ const hasRanges = (t: Record<DayType, TargetRow>): boolean =>
     }),
   );
 
-/** Leaving range mode: each pair becomes one number (the lower one). */
+/** Leaving range mode: each pair becomes one number — the lower bound, or
+ *  the only one set. */
 const collapseRanges = (t: Record<DayType, TargetRow>): Record<DayType, TargetRow> => {
   const out = { ...t };
   for (const dt of Object.keys(out) as DayType[]) {
     const row = { ...out[dt] };
     for (const [a, b] of PAIRS) {
-      const v = row[a].trim() || row[b].trim();
+      const x = row[a].trim();
+      const y = row[b].trim();
+      const v = x && y ? String(Math.min(Number(x), Number(y))) : x || y;
       row[a] = v;
       row[b] = v;
     }
@@ -171,6 +184,8 @@ export function NutritionPlanBuilder({
   /** Dims what a given day type doesn't show — a check, not a filter. */
   const [lens, setLens] = useState<DayType>('both');
   const [confirmClose, setConfirmClose] = useState(false);
+  /** Turning «Rangos» off would drop real min/max values: ask first. */
+  const [confirmRangesOff, setConfirmRangesOff] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   /** The last AI answer applied, shown in the review panel until closed. */
   const [aiResult, setAiResult] = useState<AiNutritionResult | null>(null);
@@ -202,8 +217,8 @@ export function NutritionPlanBuilder({
   const savedSig = useRef<string | null>(null);
   if (savedSig.current === null) savedSig.current = draftSignature(snapshot());
 
-  const requestClose = () =>
-    draftSignature(snapshot()) !== savedSig.current ? setConfirmClose(true) : onClose();
+  const isDirty = () => draftSignature(snapshot()) !== savedSig.current;
+  const requestClose = () => (isDirty() ? setConfirmClose(true) : onClose());
 
   /** Replace the whole form at once (an AI result, or undoing one). */
   const replaceDraft = (next: NutritionDraft) => {
@@ -399,6 +414,7 @@ export function NutritionPlanBuilder({
       kicker={isTemplate ? 'Nutrición · plantilla' : `Nutrición de ${firstName}`}
       title={isTemplate ? (initial ? 'Editar plantilla' : 'Nueva plantilla') : initial ? 'Editar plan' : 'Nuevo plan'}
       onClose={requestClose}
+      dirty={isDirty()}
       actions={
         <>
           <Button variant="ghost" size="sm" onClick={() => setAiOpen(true)} aria-label={foodCount > 0 ? 'Editar con IA' : 'Crear con IA'} className="text-foreground">
@@ -464,7 +480,7 @@ export function NutritionPlanBuilder({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nombre del plan"
                 autoFocus={!initial}
-                className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint/50 hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
+                className="display w-full border-b-2 border-transparent bg-transparent pb-1 text-[34px] text-foreground transition-colors placeholder:text-faint hover:border-border focus:border-foreground/50 focus:outline-none sm:text-[44px]"
               />
               <input
                 aria-label="Enfoque"
@@ -529,11 +545,13 @@ export function NutritionPlanBuilder({
                         placeholder="Sin fin"
                         value={durationWeeks}
                         onChange={(e) => setDurationWeeks(e.target.value)}
-                        className="pr-20"
+                        className={durationWeeks.trim() ? 'pr-20' : undefined}
                       />
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-faint">
-                        semanas
-                      </span>
+                      {durationWeeks.trim() && (
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-faint">
+                          {durationWeeks.trim() === '1' ? 'semana' : 'semanas'}
+                        </span>
+                      )}
                     </div>
                   </Field>
                   <Field label="Descripción" htmlFor="nb-desc" optional>
@@ -585,14 +603,14 @@ export function NutritionPlanBuilder({
             <SectionHeader
               id="nb-targets"
               title="Objetivo diario"
-              tip="Los únicos números del plan. Lo que el cliente registra con fotos se compara con esto. Puedes dejarlo vacío."
+              tip="Los únicos números del plan: lo que el cliente registra se compara con esto. Puedes dejarlo vacío."
               actions={
                 <div className="flex items-center gap-2">
                   <Switch
                     id="nb-range"
                     checked={rangeMode}
                     onCheckedChange={(v) => {
-                      if (!v) setTargets(collapseRanges);
+                      if (!v && hasRanges(targets)) return setConfirmRangesOff(true);
                       setRangeMode(v);
                     }}
                   />
@@ -618,7 +636,7 @@ export function NutritionPlanBuilder({
               id="nb-meals"
               title="Comidas"
               count={meals.length}
-              tip="Cada comida tiene una o más opciones y el cliente elige una. Solo escribes los alimentos: la app calcula calorías y macros con la foto del plato."
+              tip="Cada comida tiene una o más opciones y el cliente elige una. Solo escribes los alimentos: las calorías y los macros los calcula la app cuando el cliente registra lo que comió."
               actions={
                 dayCycling && (
                   <div className="flex items-center gap-2">
@@ -715,12 +733,34 @@ export function NutritionPlanBuilder({
 
       <DiscardChangesDialog open={confirmClose} onOpenChange={setConfirmClose} editing={!!initial} onDiscard={onClose} />
 
+      <AlertDialog open={confirmRangesOff} onOpenChange={setConfirmRangesOff}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Quitar los rangos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cada objetivo se queda con un solo número: el mínimo, o el único que haya.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Mantener rangos</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setTargets(collapseRanges);
+                setRangeMode(false);
+              }}
+            >
+              Quitar rangos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Así lo ve el cliente</DialogTitle>
           </DialogHeader>
-          <MobileNutritionPreview plan={preview} />
+          <MobileNutritionPreview fitToViewport plan={preview} />
         </DialogContent>
       </Dialog>
     </FocusEditor>
@@ -754,6 +794,7 @@ function TargetCard({
     <MacroField
       id={`${id}-${minKey}`}
       label={label}
+      context={meta.title}
       unit="g"
       dot={dot}
       range={range}
@@ -765,14 +806,17 @@ function TargetCard({
   );
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
+    <div role="group" aria-labelledby={`${id}-title`} className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
       <div className={cn('flex items-center gap-2 text-sm font-semibold', meta.tone)}>
-        <Icon className="h-4 w-4" />
-        <span className={dayType === 'both' ? 'text-foreground' : undefined}>{meta.title}</span>
+        <Icon className="h-4 w-4" aria-hidden="true" />
+        <span id={`${id}-title`} className={dayType === 'both' ? 'text-foreground' : undefined}>
+          {meta.title}
+        </span>
       </div>
       <MacroField
         id={`${id}-kcal`}
         label="Calorías"
+        context={meta.title}
         unit="kcal"
         big
         range={range}
@@ -800,6 +844,7 @@ const NUM_BIG = 'h-14 font-display text-[30px] font-normal tracking-wide placeho
 function MacroField({
   id,
   label,
+  context,
   unit,
   dot,
   big,
@@ -811,6 +856,8 @@ function MacroField({
 }: {
   id: string;
   label: string;
+  /** The day type the card is for — named in the range inputs' labels. */
+  context: string;
   unit: string;
   dot?: string;
   big?: boolean;
@@ -837,7 +884,7 @@ function MacroField({
             type="number"
             inputMode="decimal"
             min={0}
-            aria-label={`${label} mínimo`}
+            aria-label={`${label} mínimo, ${context.toLowerCase()}`}
             placeholder="mín"
             value={min}
             onChange={(e) => onMin(e.target.value)}
@@ -848,7 +895,7 @@ function MacroField({
             type="number"
             inputMode="decimal"
             min={0}
-            aria-label={`${label} máximo`}
+            aria-label={`${label} máximo, ${context.toLowerCase()}`}
             placeholder="máx"
             value={max}
             onChange={(e) => onMax(e.target.value)}
@@ -1084,7 +1131,7 @@ function MealCard({
       <div className="mt-2 flex flex-wrap items-center gap-2 sm:pl-12">
         <label
           className={cn(
-            'inline-flex h-8 cursor-text items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring',
+            'inline-flex h-8 min-w-0 max-w-full cursor-text items-center gap-1.5 rounded-full border px-3 text-[13px] transition-colors focus-within:border-border-strong focus-within:ring-2 focus-within:ring-ring',
             meal.timeHint.trim() ? 'border-border bg-field text-foreground' : 'border-dashed border-border-strong text-faint hover:text-foreground',
           )}
         >
@@ -1094,8 +1141,8 @@ function MealCard({
             value={meal.timeHint}
             onChange={(e) => onPatch({ timeHint: e.target.value })}
             placeholder="Añadir hora"
-            size={Math.max(10, meal.timeHint.length + 1)}
-            className="min-w-0 bg-transparent outline-none placeholder:text-faint"
+            size={Math.min(28, Math.max(10, meal.timeHint.length + 1))}
+            className="min-w-0 max-w-full bg-transparent outline-none placeholder:text-faint"
           />
         </label>
         {dayCycling && (

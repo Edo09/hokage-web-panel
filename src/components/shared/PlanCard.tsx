@@ -81,15 +81,19 @@ export function PlanCard({
       )}
     >
       <div className="flex items-start gap-1 p-4 pb-0 pr-2">
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={openLabel}
-          className="-m-1 min-w-0 flex-1 rounded-md p-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug">{title}</h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug">
+            <button
+              type="button"
+              onClick={onOpen}
+              aria-label={openLabel}
+              className="-m-1 rounded-md p-1 text-left hover:underline hover:decoration-border-strong hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {title}
+            </button>
+          </h3>
           {subtitle && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{subtitle}</p>}
-        </button>
+        </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon-sm" aria-label={`Más acciones de ${title}`} className="-mt-0.5">

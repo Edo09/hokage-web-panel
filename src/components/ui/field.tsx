@@ -11,6 +11,7 @@ export function Field({
   label,
   htmlFor,
   tip,
+  tipLabel,
   hint,
   optional,
   className,
@@ -19,6 +20,8 @@ export function Field({
   label: ReactNode;
   htmlFor?: string;
   tip?: ReactNode;
+  /** What a screen reader calls the ⓘ; defaults to "Más sobre «label»". */
+  tipLabel?: string;
   hint?: ReactNode;
   /** Marks the field as optional next to its label. */
   optional?: boolean;
@@ -30,7 +33,7 @@ export function Field({
       <div className="flex items-center gap-1.5">
         <Label htmlFor={htmlFor}>{label}</Label>
         {optional && <span className="text-xs text-faint">opcional</span>}
-        {tip && <InfoTip label={typeof label === 'string' ? `Qué es «${label}»` : undefined}>{tip}</InfoTip>}
+        {tip && <InfoTip label={tipLabel ?? (typeof label === 'string' ? `Más sobre «${label}»` : undefined)}>{tip}</InfoTip>}
       </div>
       {children}
       {hint && <p className="text-xs text-faint">{hint}</p>}

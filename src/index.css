@@ -170,6 +170,15 @@
   }
 }
 
+/* Phones: toasts sit above the bottom tab bar and the builders' pinned save
+   bar instead of covering them. Sonner sets its offsets inline, hence the
+   !important. */
+@media (max-width: 767px) {
+  [data-sonner-toaster][data-y-position='bottom'] {
+    bottom: calc(4.75rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 @layer components {
   /* Anton set the way the app's posters set it: caps, tight, one weight.
      For page titles and the numbers a coach scans — never for labels. */

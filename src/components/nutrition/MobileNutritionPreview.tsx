@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 import { foodsFor, mealAppliesOn } from '@/components/nutrition/previewModel';
 import type {
   PreviewNutritionPlan,
@@ -88,10 +89,14 @@ type Day = Exclude<DayType, 'both'>;
 export function MobileNutritionPreview({
   plan,
   supplements,
+  fitToViewport = false,
 }: {
   plan: PreviewNutritionPlan;
   /** Independently assignable, so it may legitimately be absent. */
   supplements?: PreviewSupplementPlan | null;
+  /** In a dialog: shrink the screen to fit the window, so the dialog itself
+   *  never needs a scrollbar. Inline (the builder's side column) it's full height. */
+  fitToViewport?: boolean;
 }) {
   const [pane, setPane] = useState<'plan' | 'supp'>('plan');
   const [day, setDay] = useState<Day>('training');
@@ -101,7 +106,7 @@ export function MobileNutritionPreview({
     plan.targets.find((t) => t.dayType === (plan.dayCycling ? activeDay : 'both')) ?? null;
 
   return (
-    <div className="mx-auto w-[336px] flex-none">
+    <div className="mx-auto w-full max-w-[336px] flex-none">
       <div
         className="overflow-hidden rounded-[34px] border-[9px] shadow-2xl"
         style={{ borderColor: '#23262C', background: APP.bg }}
@@ -110,7 +115,13 @@ export function MobileNutritionPreview({
           <span className="h-1 w-16 rounded-full" style={{ background: '#2E3440' }} />
         </div>
 
-        <div className="h-[560px] overflow-y-auto px-3 pb-4" style={{ background: APP.bg }}>
+        <div
+          className={cn(
+            'overflow-y-auto px-3 pb-4',
+            fitToViewport ? 'h-[clamp(320px,calc(100dvh-11rem),560px)]' : 'h-[560px]',
+          )}
+          style={{ background: APP.bg }}
+        >
           {/* tab segments — Plan · Suplementos · Diario */}
           <div className="mt-1 flex gap-1 rounded-xl p-1" style={{ background: APP.surface }}>
             <Segment active={pane === 'plan'} onClick={() => setPane('plan')}>
@@ -318,6 +329,11 @@ function SupplementPane({
         <span className="text-[14px] font-bold" style={{ color: APP.text }}>
           {plan.name}
         </span>
+        {plan.notes && (
+          <div className="mt-1 whitespace-pre-line text-[11.5px]" style={{ color: APP.secondary }}>
+            {plan.notes}
+          </div>
+        )}
       </Panel>
 
       {TIERS.map((tier) => {
@@ -350,6 +366,11 @@ function SupplementPane({
                 {i.purpose && (
                   <div className="mt-0.5 text-[11px]" style={{ color: APP.muted }}>
                     {i.purpose}
+                  </div>
+                )}
+                {i.notes && (
+                  <div className="mt-0.5 text-[11px] italic" style={{ color: APP.muted }}>
+                    {i.notes}
                   </div>
                 )}
               </div>

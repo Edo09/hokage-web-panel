@@ -36,7 +36,7 @@ import { programToPreview } from '@/components/program/previewModel';
 import { STATUS_BADGE, STATUS_LABEL } from '@/lib/programStatus';
 import { draftKey, hasDraft } from '@/lib/programDraft';
 import { qk } from '@/lib/queryClient';
-import { cn, fmtDate } from '@/lib/utils';
+import { cn, fmtDate, plural } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -460,7 +460,11 @@ function TemplatePicker({
         return {
           id: tpl.id,
           title: tpl.name,
-          subtitle: `${tpl.duration_weeks} sem, ${tpl.program_days.length} días, ${exCount} ejercicios`,
+          subtitle: [
+            `${tpl.duration_weeks} sem`,
+            plural(tpl.program_days.length, 'día', 'días'),
+            plural(exCount, 'ejercicio', 'ejercicios'),
+          ].join(', '),
         };
       })}
       onSelectedChange={(id) => setLockFutureWeeks(templates?.find((t) => t.id === id)?.lock_future_weeks ?? false)}

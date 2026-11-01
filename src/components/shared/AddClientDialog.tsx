@@ -92,6 +92,8 @@ export function AddClientDialog({
                 <Label htmlFor="add-name">Nombre</Label>
                 <Input
                   id="add-name"
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? 'add-client-error' : undefined}
                   placeholder="Ej. Juan Pérez"
                   value={name}
                   onChange={(e) => {
@@ -106,6 +108,8 @@ export function AddClientDialog({
                 <Input
                   id="add-email"
                   type="email"
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? 'add-client-error' : undefined}
                   placeholder="cliente@correo.com"
                   value={email}
                   onChange={(e) => {
@@ -114,7 +118,11 @@ export function AddClientDialog({
                   }}
                 />
               </div>
-              {error && <p className="text-[12.5px] text-primary">{error}</p>}
+              {error && (
+                <p id="add-client-error" role="alert" className="text-[13px] text-destructive">
+                  {error}
+                </p>
+              )}
               <DialogFooter className="mt-2">
                 <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                   Cancelar

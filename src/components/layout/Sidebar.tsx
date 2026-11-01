@@ -43,8 +43,8 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     <nav
       aria-label="Navegación principal"
       className={cn(
-        'sticky top-0 hidden h-screen flex-none flex-col border-r border-border bg-rail px-3 py-4 transition-[width] duration-200 md:flex',
-        collapsed ? 'w-[72px]' : 'w-[236px]',
+        'sticky top-0 hidden h-screen flex-none flex-col border-r border-border bg-rail py-4 pl-[max(0.75rem,env(safe-area-inset-left))] pr-3 transition-[width] duration-200 md:flex',
+        collapsed ? 'w-[calc(72px_+_env(safe-area-inset-left))]' : 'w-[calc(236px_+_env(safe-area-inset-left))]',
       )}
     >
       <div className={cn('mb-6 flex items-center gap-3', collapsed ? 'justify-center' : 'px-1')}>

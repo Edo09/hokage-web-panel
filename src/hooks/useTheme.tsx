@@ -16,6 +16,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
+    // The phone's browser bar follows the canvas (--background).
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#0f141c' : '#f3f5f8');
     localStorage.setItem(KEY, theme);
   }, [theme]);
 
