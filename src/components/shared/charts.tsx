@@ -23,8 +23,8 @@ export function TrendAreaChart({ data }: { data: number[] }) {
       <AreaChart data={points} margin={{ top: 6, right: 4, bottom: 0, left: 4 }}>
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.22} />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.04} />
+            <stop offset="0%" stopColor="hsl(var(--secondary))" stopOpacity={0.22} />
+            <stop offset="100%" stopColor="hsl(var(--secondary))" stopOpacity={0.04} />
           </linearGradient>
         </defs>
         <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeWidth={1} />
@@ -33,7 +33,7 @@ export function TrendAreaChart({ data }: { data: number[] }) {
         <Area
           type="monotone"
           dataKey="v"
-          stroke="hsl(var(--primary))"
+          stroke="hsl(var(--secondary))"
           strokeWidth={2.5}
           fill="url(#trendFill)"
           isAnimationActive={false}

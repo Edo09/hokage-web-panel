@@ -130,7 +130,7 @@ export function MembershipTab({ client, onChanged }: { client: ClientWithMeta; o
             </div>
           </div>
           <div className="mt-5 flex flex-wrap gap-2.5">
-            <Button className="flex-1 whitespace-nowrap" onClick={() => void renew()}>
+            <Button variant="secondary" className="flex-1 whitespace-nowrap" onClick={() => void renew()}>
               Renovar 30 días
             </Button>
             <Button

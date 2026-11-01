@@ -73,7 +73,7 @@ export function ProgressTab({ client }: { client: ClientWithMeta }) {
                     {fmtShort(lg.date)}
                   </div>
                   <div className="flex w-2 flex-none flex-col items-center pt-[5px]">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
+                    <span className="h-2 w-2 rounded-full bg-foreground/50" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

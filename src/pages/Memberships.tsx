@@ -183,15 +183,17 @@ export default function Memberships() {
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{c.display_name ?? c.email}</span>
                         <span className="hidden truncate text-xs text-faint md:block">{c.email}</span>
-                        <span className={cn('block truncate text-xs md:hidden', TONE_CLASS[exp.tone])}>
-                          {m?.plan_name ? `${m.plan_name}, ` : ''}
-                          {exp.label === '—' ? 'sin vencimiento' : exp.label.toLowerCase()}
+                        <span className="mt-1 flex min-w-0 items-center gap-2 md:hidden">
+                          <StatusBadge status={status} className="px-2 py-0.5" />
+                          <span className={cn('truncate text-xs', TONE_CLASS[exp.tone])}>
+                            {exp.label === '—' ? 'Sin vencimiento' : exp.label}
+                          </span>
                         </span>
                       </span>
                     </button>
                     <span className="hidden truncate text-[13px] text-muted-foreground md:block">{m?.plan_name ?? 'Sin plan'}</span>
                     <span className="hidden whitespace-nowrap text-[13px] font-semibold md:block">{money(m?.price ?? null)}</span>
-                    <span className="hidden flex-none sm:block">
+                    <span className="hidden flex-none md:block">
                       <StatusBadge status={status} />
                     </span>
                     <span className={cn('hidden whitespace-nowrap text-[13px] md:block', TONE_CLASS[exp.tone])}>{exp.label}</span>
@@ -200,7 +202,7 @@ export default function Memberships() {
                         onClick={() => void doRenew(c)}
                         title="Renovar 30 días"
                         aria-label="Renovar 30 días"
-                        className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-success hover:text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-10 w-10 flex-none items-center justify-center rounded-lg border border-border bg-card md:h-8 md:w-8 text-muted-foreground transition-colors hover:border-success hover:text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <RotateCw className="h-3.5 w-3.5" strokeWidth={1.8} />
                       </button>
@@ -209,7 +211,7 @@ export default function Memberships() {
                           onClick={() => setPauseTarget(c)}
                           title="Pausar"
                           aria-label="Pausar membresía"
-                          className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-warning hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex h-10 w-10 flex-none items-center justify-center rounded-lg border border-border bg-card md:h-8 md:w-8 text-muted-foreground transition-colors hover:border-warning hover:text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <Pause className="h-3.5 w-3.5" strokeWidth={1.8} />
                         </button>
@@ -219,7 +221,7 @@ export default function Memberships() {
                           onClick={() => void doResume(c)}
                           title="Reanudar"
                           aria-label="Reanudar membresía"
-                          className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:border-success hover:text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex h-10 w-10 flex-none items-center justify-center rounded-lg border border-border bg-card md:h-8 md:w-8 text-muted-foreground transition-colors hover:border-success hover:text-success focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <Play className="h-3.5 w-3.5" strokeWidth={1.8} />
                         </button>
