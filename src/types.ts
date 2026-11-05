@@ -121,10 +121,26 @@ export interface MealItem {
   fat_g: number;
   portion: string | null;
   photo_path: string | null;
-  /** Set when the client logged this from a prescribed nutrition-plan option —
-   *  the adherence link. Null for free-form entries. */
+  /** The plan option a registration (or an old diary row) came from — the
+   *  adherence link. Null for «otra cosa», «No la comí», free-form diary rows,
+   *  and once the coach removes the option. */
   plan_option_id: string | null;
   created_at: string;
+  /* Meal registrations (app repo, supabase/migrations/20261105120000). An old
+     diary row has no kind; the columns are missing before the migration, hence
+     optional. Count rows with lib/mealRegistrations.ts, never by
+     estimate_status alone. */
+  /** The plan meal this row registers. */
+  plan_meal_id?: string | null;
+  /** «plan» option, «other» (otra cosa) or «skipped» (No la comí). */
+  kind?: 'plan' | 'other' | 'skipped' | null;
+  /** What the client typed for «otra cosa»; `name` holds the corrected text. */
+  original_text?: string | null;
+  /** The server's estimate: numbers count only once it is done. */
+  estimate_status?: 'pending' | 'done' | 'failed' | null;
+  estimate_version?: number | null;
+  estimate_attempts?: number | null;
+  estimate_next_at?: string | null;
 }
 
 export type MealWithItems = Meal & { meal_items: MealItem[] };
@@ -371,9 +387,9 @@ export interface ActivityItem {
  * (both), which is how carb cycling is expressed.
  *
  * Foods carry a name and nothing else — no quantity, no macros. The coach
- * prescribes WHAT to eat; every number is measured later from the client's
- * photo by the AI estimator. The only figures a coach types are the plan-level
- * targets. */
+ * prescribes WHAT to eat; when the client registers a meal, the AI estimates
+ * its numbers from the food names, plus the photo when there is one. The only
+ * figures a coach types are the plan-level targets. */
 
 /** Nutrition and supplement plans share the programs status vocabulary, so the
  *  STATUS_LABEL / STATUS_BADGE maps in lib/programStatus.ts apply unchanged. */
@@ -383,7 +399,7 @@ export type PlanStatus = ProgramStatus;
 export type DayType = 'both' | 'training' | 'rest';
 
 /** Six slots, but meals.meal_type only allows four — pre_workout/post_workout
- *  collapse to 'snack' when a prescription is written into the diary. */
+ *  collapse to 'snack' in the container a registration goes into. */
 export type PlanMealType = MealType | 'pre_workout' | 'post_workout';
 
 export type SupplementTier = 'base' | 'conditional' | 'optional';
