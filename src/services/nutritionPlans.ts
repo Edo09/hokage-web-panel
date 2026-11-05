@@ -142,7 +142,7 @@ export interface NutritionItemInput {
 
 export interface NutritionOptionInput {
   /** The option's id when it already exists — save_nutrition_plan updates it
-   *  in place so diary entries registered from it stay linked (adherence).
+   *  in place so registrations made from it stay linked (adherence).
    *  Omit for a new option. */
   id?: string;
   label: string | null;

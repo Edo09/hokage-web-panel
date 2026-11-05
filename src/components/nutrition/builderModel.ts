@@ -81,7 +81,7 @@ export interface FoodRow {
 }
 export interface OptionRow {
   /** DB id of an option loaded from an existing plan — sent back on save so
-   *  the RPC updates it in place and diary entries registered from it stay
+   *  the RPC updates it in place and registrations made from it stay
    *  linked. Absent on options added in the builder. */
   id?: string;
   label: string;

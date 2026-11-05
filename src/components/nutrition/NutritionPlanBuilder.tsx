@@ -146,8 +146,9 @@ const copyMeal = (m: MealRow): MealRow => ({
  * One canvas instead of steps: the plan's name, whether days differ (training
  * vs rest), the daily targets, then the meals — each a card whose options sit
  * side by side. A food row is a NAME and a day type — nothing else. No portion,
- * no macros: the coach prescribes what to eat, and every number is measured
- * later from the client's photo. The only figures are the daily targets.
+ * no macros: the coach prescribes what to eat, and the AI estimates every
+ * number when the client registers what they ate. The only figures are the
+ * daily targets.
  */
 export function NutritionPlanBuilder({
   client,
@@ -636,7 +637,7 @@ export function NutritionPlanBuilder({
               id="nb-meals"
               title="Comidas"
               count={meals.length}
-              tip="Cada comida tiene una o más opciones y el cliente elige una. Solo escribes los alimentos: las calorías y los macros los calcula la app cuando el cliente registra lo que comió."
+              tip="Cada comida tiene una o más opciones y el cliente elige una. Solo escribes los alimentos: las calorías y los macros los estima la IA cuando el cliente registra lo que comió."
               actions={
                 dayCycling && (
                   <div className="flex items-center gap-2">

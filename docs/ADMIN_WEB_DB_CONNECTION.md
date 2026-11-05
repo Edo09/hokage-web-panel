@@ -130,8 +130,8 @@ Once signed in as the coach, `is_coach()` is true and these additive **permissiv
 | `profiles` | read + update **all** profiles | read/update **own**; read the coach profile |
 | `routines` | full CRUD on **all** | CRUD **own** — but rows with `assigned_by` set are **read-only** |
 | `routine_exercises` | full CRUD on **all** | CRUD **own** — read-only if the parent routine is assigned |
-| `meals` | full CRUD on **all** | CRUD **own** — assigned meals read-only |
-| `meal_items` | full CRUD on **all** | CRUD **own** — read-only if parent meal is assigned |
+| `meals` | full CRUD on **all** | CRUD **own** (the app writes them as registrations of the plan's meals) — rows with `assigned_by` read-only |
+| `meal_items` | full CRUD on **all** | CRUD **own** — read-only if the parent meal has `assigned_by` |
 | `workout_logs` | read (+ CRUD) on **all** | CRUD **own** |
 | `memberships` | full CRUD on **all** | read **own** only |
 
@@ -164,6 +164,9 @@ const { data: routines } = await supabase
   .eq("user_id", clientId)
   .order("created_at", { ascending: false });
 
+// The client's meal registrations (and diary rows from before them). Count them
+// with lib/mealRegistrations.ts: pending/failed estimates have no numbers yet,
+// «No la comí» isn't food, and undone meals leave empty containers.
 const { data: meals } = await supabase
   .from("meals")
   .select("*, meal_items(*)")
@@ -238,23 +241,13 @@ await supabase.from("routine_exercises").insert([
 
 ### Assign nutrition
 
-Two levers:
+The coach assigns a nutrition plan and sets the client's daily calorie target:
 
 ```ts
-// (a) Set / override the client's daily calorie target
 await supabase.from("profiles").update({ calorie_goal: 2200 }).eq("id", clientId);
-
-// (b) Optionally seed assigned meals (appear read-only in the client's diary)
-const { data: meal } = await supabase
-  .from("meals")
-  .insert({ user_id: clientId, assigned_by: coachId, name: "Lunch", meal_type: "lunch" })
-  .select()
-  .single();
-
-await supabase.from("meal_items").insert([
-  { meal_id: meal.id, user_id: clientId, name: "Chicken & rice", calories: 600, protein_g: 45, carbs_g: 60, fat_g: 12 },
-]);
 ```
+
+The app has no diary since meal registration (2026-11): the client registers each of today's plan meals, and those registrations are the `meals` / `meal_items` rows (the app repo's copy of this doc lists their columns). Don't seed meals: coach-seeded meals were never built into the app, and a coach-written row shows nowhere in it, only in the client's calorie totals.
 
 ### Manage a membership
 
@@ -402,7 +395,7 @@ Source of truth: **`supabase/migrations/20260707120000_coaching_platform.sql`** 
 |---|---|---|
 | `role` | `profiles` | `'user'` (client) or `'coach'`. Drives `is_coach()`. Default `'user'`. |
 | `whatsapp` | `profiles` | Coach's contact number (international digits). Shown to clients on mobile. |
-| `assigned_by` | `routines`, `meals` | `null` = self-made; coach's `profiles.id` = coach-assigned (read-only for the client). |
+| `assigned_by` | `routines`, `meals` | `null` = self-made; coach's `profiles.id` = coach-assigned (read-only for the client). The app never sets it on `meals`: coach-seeded meals were never built. |
 
 **Membership table** — `public.memberships`: `client_id`, `coach_id`, `plan_name`, `status` (`active`/`expired`/`paused`/`cancelled`), `price`, `currency`, `started_at`, `expires_at`, `notes`.
 

@@ -105,11 +105,6 @@ export function AiNutritionDialog({
       hasContent={hasContent}
       mode={mode}
       onModeChange={setMode}
-      replaceNote={
-        host.hasInitial && !host.isTemplate
-          ? 'Al guardar, las comidas que el cliente ya registró desde este plan se conservan en su diario, pero sin vínculo al nuevo plan.'
-          : undefined
-      }
       prompt={prompt}
       onPromptChange={setPrompt}
       examples={EXAMPLES}

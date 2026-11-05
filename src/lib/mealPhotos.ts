@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabaseClient';
 
 /**
- * Public URL for a diary photo the CLIENT uploaded from the mobile app.
+ * Public URL for a meal photo the CLIENT added when registering a meal in the
+ * mobile app.
  *
  * The app stores these in the public `meal-photos` bucket under
  * "<userId>/<uuid>.jpg" (migration 20260705120000_meal_photos.sql) and derives

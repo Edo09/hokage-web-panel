@@ -58,7 +58,7 @@ They use the same `ALLOWED_ORIGINS` secret as the account functions. Details: `d
 - **Login** (`/login`) — branded, coach-only, real Supabase Auth.
 - **Panel** (`/`) — KPI tiles, clients trend, workouts/week, recent activity, expiring-soon list, quick actions.
 - **Clientes** (`/clients`) — searchable table, add-client modal (`create-client`).
-- **Cliente** (`/clients/:id?tab=…`) — header (with **Restablecer contraseña**) + tabs: Resumen, Programas (assign/build multi-week programs), Seguimiento (logged sets + completions), Nutrición (nutrition + supplement plans, calorie goal, logged meals with photos), Progreso, Membresía.
+- **Cliente** (`/clients/:id?tab=…`) — header (with **Restablecer contraseña**) + tabs: Resumen, Programas (assign/build multi-week programs), Seguimiento (logged sets + completions), Nutrición (nutrition + supplement plans, calorie goal, the plan's meals the client registers, with photos), Progreso, Membresía.
 - **Programas** (`/programs`) — program template library: builder with live mobile preview and an AI assistant that drafts or edits a program from a prompt (`generate-program`), assign, PDF export, archive.
 - **Nutrición** (`/nutrition`) — nutrition and supplement plan templates, same pattern as Programas; the nutrition builder has the same AI assistant, drafting or editing a plan from a prompt (`generate-nutrition-plan`).
 - **Ejercicios** (`/exercises`) — exercise catalog CRUD (name, body part, demo video).

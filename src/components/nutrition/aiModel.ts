@@ -6,7 +6,7 @@
  * the DB CHECKs enforce, orders every min/max pair, forces the day types a
  * plan without cycling can hold, and maps each kept `ref` back to the builder
  * row it came from. A kept row carries its DB id, so saving updates it in
- * place: an option keeps the diary entries the client registered from it —
+ * place: an option keeps the registrations the client made from it —
  * but only while it still holds at least one of the same foods. An option
  * whose foods were all swapped is a different meal, and becomes a new row.
  *
@@ -80,7 +80,7 @@ export interface AiNutritionPlan {
 /** What the dialog needs from the builder it sits in. */
 export interface NutritionAiHost {
   isTemplate: boolean;
-  /** Whether the builder is editing a saved plan (its options may already have diary entries). */
+  /** Whether the builder is editing a saved plan (its options may already have registrations). */
   hasInitial: boolean;
   /** The client the plan is for; null for a library template. */
   clientId: string | null;
@@ -239,7 +239,7 @@ export function aiToDraft(raw: unknown, before: MealRow[] | null): AiNutritionDr
       });
       if (foods.length === 0) return [];
       // The row's id only stays with an option that still holds one of the
-      // same foods: diary entries registered from it keep describing
+      // same foods: registrations made from it keep describing
       // something that is in it. A full swap is a new option.
       const orig = claim(optionByRef, o.ref, (prev) => sharesFood(prev, foods));
       return [{ ...(orig?.id ? { id: orig.id } : {}), label: text(o.label, 80), notes: text(o.notes, 300), foods }];
