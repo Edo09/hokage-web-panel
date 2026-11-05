@@ -85,7 +85,13 @@ export async function getRosterActivity(): Promise<RosterActivity> {
       supabase.from('workout_logs').select('user_id, date').gte('date', d56).order('date', { ascending: false }).range(from, to),
     ),
     fetchAll<{ user_id: string; date: string }>((from, to) =>
-      supabase.from('meals').select('user_id, date').gte('date', d14).order('date', { ascending: false }).range(from, to),
+      // !inner: only containers holding a row (an undo leaves an empty one).
+      supabase
+        .from('meals')
+        .select('user_id, date, meal_items!inner(id)')
+        .gte('date', d14)
+        .order('date', { ascending: false })
+        .range(from, to),
     ),
     supabase.from('nutrition_plans').select('user_id').eq('status', 'active').not('user_id', 'is', null),
   ]);

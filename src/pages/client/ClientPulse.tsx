@@ -12,6 +12,7 @@ import { keyDaysAgo, toKey } from '@/services/insights';
 import { qk } from '@/lib/queryClient';
 import { cn, fmtShort } from '@/lib/utils';
 import { formatWeight, kgToDisplay } from '@/lib/weightUnit';
+import { nonEmptyMeals } from '@/lib/mealRegistrations';
 import { useWeightUnit } from '@/hooks/useWeightUnit';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -292,7 +293,13 @@ function Adherence({
   const trained = [...activeDays].filter((d) => window28.has(d)).length;
   const planned = daysPerWeek ? daysPerWeek * 4 : null;
   const pct = planned ? Math.min(100, Math.round((trained / planned) * 100)) : null;
-  const mealDays = new Set(client.meals.filter((m) => window28.has(m.date.slice(0, 10))).map((m) => m.date.slice(0, 10))).size;
+  // Any registration counts, «No la comí» included; containers emptied by an
+  // undo don't.
+  const mealDays = new Set(
+    nonEmptyMeals(client.meals)
+      .filter((m) => window28.has(m.date.slice(0, 10)))
+      .map((m) => m.date.slice(0, 10)),
+  ).size;
 
   const R = 46;
   const C = 2 * Math.PI * R;
