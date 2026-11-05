@@ -93,6 +93,39 @@ export function mealAppliesOn(meal: PreviewMeal, day: Exclude<DayType, 'both'>):
   return meal.appliesTo === 'both' || meal.appliesTo === day;
 }
 
+/* ---------------- today's list, as the app shows it ---------------- */
+
+/** One meal in the client's list today, before anything is registered. */
+export type PreviewTodayMeal = { meal: PreviewMeal; applies: boolean; noteOnly: boolean; options: PreviewOption[] };
+
+/** The app's list for a day (its todayMeals with nothing registered): the
+ *  meals that apply, in plan order, with the options that have a food that
+ *  day; a meal the day type leaves out stays only as a note row. */
+export function previewTodayMeals(plan: PreviewNutritionPlan, day: 'training' | 'rest'): PreviewTodayMeal[] {
+  const out: PreviewTodayMeal[] = [];
+  for (const meal of plan.meals) {
+    const applies = !plan.dayCycling || mealAppliesOn(meal, day);
+    const noteOnly = !applies && meal.notes != null && meal.notes.trim() !== '';
+    if (!applies && !noteOnly) continue;
+    const options = meal.options.filter((o) => (plan.dayCycling ? foodsFor(o, day) : o.foods).length > 0);
+    out.push({ meal, applies, noteOnly, options });
+  }
+  return out;
+}
+
+const isRequiredToday = (m: PreviewTodayMeal) => m.applies && !m.noteOnly && !m.meal.isOptional;
+
+/** M in «0 de M comidas»: the required meals that apply. */
+export function previewTotalMeals(meals: PreviewTodayMeal[]): number {
+  return meals.filter(isRequiredToday).length;
+}
+
+/** «Siguiente» with nothing registered: the first required meal that applies. */
+export function previewNextIndex(meals: PreviewTodayMeal[]): number | null {
+  const i = meals.findIndex(isRequiredToday);
+  return i === -1 ? null : i;
+}
+
 function buildTarget(
   dayType: DayType,
   kcalMin: string | number | null,
