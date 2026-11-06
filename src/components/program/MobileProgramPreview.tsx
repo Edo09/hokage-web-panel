@@ -18,7 +18,8 @@ import type { PreviewExercise, PreviewProgram, PreviewWeek } from '@/components/
  *   - a row shows only the exercise's OWN pinned %1RM or qualitative load;
  *   - tempo is the exercise's own, else the program's default: a «Tempo
  *     3-1-2-0» chip, or a note line when written another way;
- *   - no rest on the cards: it comes after training, inside the exercise.
+ *   - no rest on the cards: it comes after training, inside the exercise;
+ *   - a superset is one violet block: tint, side bar and label.
  *
  * Colours are hard-coded to the app's dark palette on purpose: this simulates a
  * device, so it must not follow the panel's light/dark theme.
@@ -41,6 +42,9 @@ const APP = {
   accentSoft: 'rgba(240,178,58,0.14)',
   warn: '#F0B23A',
   warnSoft: 'rgba(240,178,58,0.14)',
+  // The app's superset violet (red trains, blue rests, green is done).
+  superset: '#A78BFA',
+  supersetSoft: 'rgba(167,139,250,0.12)',
 };
 
 const WEEKDAY_ES: Record<string, string> = {
@@ -272,10 +276,28 @@ export function MobileProgramPreview({
                     const next = d.exercises[i + 1]?.superset ?? null;
                     const inGroup = ex.superset != null && (ex.superset === prev || ex.superset === next);
                     const starts = inGroup && ex.superset !== prev;
+                    const ends = inGroup && ex.superset !== next;
                     return (
-                      <div key={i} style={inGroup ? { borderLeft: `3px solid ${APP.accent}`, paddingLeft: 8 } : undefined}>
+                      <div
+                        key={i}
+                        // One violet block per superset, as in the app.
+                        style={
+                          inGroup
+                            ? {
+                                borderLeft: `3px solid ${APP.superset}`,
+                                background: APP.supersetSoft,
+                                paddingLeft: 8,
+                                paddingRight: 6,
+                                marginTop: starts ? 4 : 0,
+                                marginBottom: ends ? 4 : 0,
+                                borderTopRightRadius: starts ? 10 : 0,
+                                borderBottomRightRadius: ends ? 10 : 0,
+                              }
+                            : undefined
+                        }
+                      >
                         {starts && (
-                          <div className="pt-1.5 text-[9.5px] font-bold uppercase tracking-wider" style={{ color: APP.accent }}>
+                          <div className="pt-1.5 text-[9.5px] font-bold uppercase tracking-wider" style={{ color: APP.superset }}>
                             Superserie {ex.superset}
                           </div>
                         )}
@@ -284,7 +306,7 @@ export function MobileProgramPreview({
                           week={week}
                           w={w}
                           tempoDefault={program.tempoDefault}
-                          first={i === 0 || (inGroup && !starts)}
+                          first={i === 0 || inGroup}
                         />
                       </div>
                     );
