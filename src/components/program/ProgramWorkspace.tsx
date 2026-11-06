@@ -18,6 +18,7 @@ import type { Exercise, ProgramStatus } from '@/types';
 import { ExerciseCombobox } from '@/components/shared/ExerciseCombobox';
 import { cn } from '@/lib/utils';
 import { draftAge } from '@/lib/programDraft';
+import { normalizeTempo } from '@/lib/tempo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,7 +94,7 @@ const CELL =
 // Phones: number, name and actions on one line, the numbers below with their
 // own labels. From md: one spreadsheet-like row under a header.
 const ROW_GRID =
-  'grid items-center gap-2 [grid-template-columns:24px_minmax(0,1fr)_auto] md:[grid-template-columns:16px_24px_minmax(180px,1fr)_52px_96px_90px_60px_60px_56px]';
+  'grid items-center gap-2 [grid-template-columns:24px_minmax(0,1fr)_auto] md:[grid-template-columns:16px_24px_minmax(180px,1fr)_52px_96px_90px_64px_60px_60px_56px]';
 const CAPS = 'text-xs font-medium text-muted-foreground';
 const NATIVE_SELECT =
   'h-8 rounded-lg border border-border bg-field px-2 text-[13px] text-foreground hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
@@ -498,12 +499,20 @@ function WorkspaceHeader({
                 onChange={(e) => b.setProgressionRule(e.target.value)}
               />
             </Field>
-            <Field id="pw-tempo" label="Tempo por defecto" tip="El ritmo de cada repetición, para los ejercicios que no fijan el suyo.">
+            <Field
+              id="pw-tempo"
+              label="Tempo por defecto"
+              tip="Para los ejercicios que no fijan el suyo: segundos de bajada, pausa abajo, subida y pausa arriba (X = explosiva)."
+            >
               <Input
                 id="pw-tempo"
-                placeholder="Ej. Bajada 2–3 s, subida explosiva"
+                placeholder="Ej. 3-1-2-0"
                 value={b.tempoDefault}
                 onChange={(e) => b.setTempoDefault(e.target.value)}
+                onBlur={() => {
+                  const t = normalizeTempo(b.tempoDefault);
+                  if (t != null && t !== b.tempoDefault) b.setTempoDefault(t);
+                }}
               />
             </Field>
             <Field id="pw-desc" label="Descripción">
@@ -954,7 +963,7 @@ function ExerciseTable({
 
   return (
     <div className="rounded-xl border border-border bg-card md:overflow-x-auto">
-      <div className="md:min-w-[700px]">
+      <div className="md:min-w-[770px]">
         {(weekRir !== '—' || weekSets) && (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-muted/50 px-3.5 py-2 text-[13px] text-muted-foreground">
             <span className="font-medium text-foreground">Semana {weekNumber}</span>
@@ -969,7 +978,7 @@ function ExerciseTable({
               </span>
             )}
             <InfoTip label="De dónde salen estos valores">
-              Los campos con borde punteado toman el valor de la semana mientras no escribas otro.
+              Los campos con borde punteado toman el valor de la semana (o el tempo por defecto del programa) mientras no escribas otro.
             </InfoTip>
           </div>
         )}
@@ -982,6 +991,12 @@ function ExerciseTable({
           <span className="flex items-center justify-center gap-1">
             RIR
             <InfoTip label="Qué es el RIR">Repeticiones en reserva: cuántas le quedan antes de no poder más.</InfoTip>
+          </span>
+          <span className="flex items-center justify-center gap-1">
+            Tempo
+            <InfoTip label="Cómo se escribe el tempo">
+              Segundos de bajada, pausa abajo, subida y pausa arriba: 3-1-2-0. X = explosiva. Sin tempo, toma el del programa.
+            </InfoTip>
           </span>
           <span className="flex items-center justify-center gap-1">
             %1RM
@@ -1077,6 +1092,9 @@ function ExerciseRow({
   const catalogHit = b.byName.get(x.name.trim().toLowerCase());
   const rirInherited = !x.rirMin.trim() && !x.rirMax.trim() && weekRir !== '—';
   const [rirLo, rirHi] = weekRir.includes('–') ? weekRir.split('–') : [weekRir, weekRir];
+  // The program's default tempo, for a row that sets none (as the app does).
+  const tempoDefault = normalizeTempo(b.tempoDefault) ?? b.tempoDefault.trim();
+  const tempoInherited = !x.tempo.trim() && tempoDefault !== '';
   const qual = LOAD_QUAL.find((l) => l.value === x.loadQual && l.value)?.label;
   const adjusted = overriddenWeeks(x, b.weeksN);
   const [editWeek, setEditWeek] = useState<number | null>(null);
@@ -1134,7 +1152,6 @@ function ExerciseRow({
               <span>{x.name.trim() ? (catalogHit ? bodyPartLabel(catalogHit.body_part?.name) : 'Personalizado') : ''}</span>
               {x.unilateral && <span className="rounded bg-muted px-1.5 font-medium text-muted-foreground">Por lado</span>}
               {qual && <span>{qual}</span>}
-              {x.tempo.trim() && <span>Tempo {x.tempo.trim()}</span>}
               {x.notes.trim() && <span>Con nota</span>}
               {adjusted.length > 0 && (
                 <span className="font-semibold text-warning">Ajustes {adjusted.map((w) => `S${w}`).join(', ')}</span>
@@ -1142,7 +1159,7 @@ function ExerciseRow({
             </div>
           </div>
         </div>
-        <div className="col-span-full row-start-2 grid grid-cols-[1fr_1.7fr_1.7fr] gap-2 pl-8 sm:grid-cols-[1fr_1.7fr_1.7fr_1fr_1fr] md:contents">
+        <div className="col-span-full row-start-2 grid grid-cols-[1fr_1.7fr_1.7fr] gap-2 pl-8 sm:grid-cols-[1fr_1.7fr_1.7fr_1.3fr_1fr_1fr] md:contents">
         <Cell label="Series">
           <input className={CELL} type="number" min={1} max={20} aria-label="Series" value={x.sets} onChange={(e) => upd({ sets: e.target.value })} />
         </Cell>
@@ -1177,6 +1194,19 @@ function ExerciseRow({
             onChange={(e) => upd({ rirMax: e.target.value })}
           />
         </div>
+        </Cell>
+        <Cell label="Tempo">
+          <input
+            className={cn(CELL, tempoInherited && 'border-dashed')}
+            aria-label="Tempo"
+            placeholder={tempoInherited ? tempoDefault : '3-1-2-0'}
+            value={x.tempo}
+            onChange={(e) => upd({ tempo: e.target.value })}
+            onBlur={() => {
+              const t = normalizeTempo(x.tempo);
+              if (t != null && t !== x.tempo) upd({ tempo: t });
+            }}
+          />
         </Cell>
         <Cell label="%1RM">
           <input className={CELL} type="number" min={1} max={100} aria-label="% de 1RM" placeholder="—" value={x.loadPct} onChange={(e) => upd({ loadPct: e.target.value })} />
@@ -1221,10 +1251,6 @@ function ExerciseRow({
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className={CAPS}>Tempo</span>
-            <Input className="h-8 w-24" aria-label="Tempo" placeholder="3-1-1" value={x.tempo} onChange={(e) => upd({ tempo: e.target.value })} />
           </div>
           <div className="flex min-w-[220px] flex-1 flex-col gap-1">
             <span className={CAPS}>Nota para el cliente</span>

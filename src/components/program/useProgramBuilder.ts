@@ -5,6 +5,7 @@ import { createProgram, createTemplate, updateProgram, updateTemplate } from '@/
 import { listExercises } from '@/services/exercises';
 import { errorMessage } from '@/lib/dbError';
 import { clearDraft, draftKey, loadDraft, saveDraft } from '@/lib/programDraft';
+import { normalizeTempo, TEMPO_FORMAT } from '@/lib/tempo';
 import { draftToPreview } from '@/components/program/previewModel';
 import {
   buildPayload,
@@ -228,6 +229,11 @@ export function useProgramBuilder({ client, initial, onSaved }: ProgramBuilderPr
     if (!name.trim()) {
       onInvalid({ step: 0, message: 'Ponle nombre al programa' });
       return toast.error('Ponle nombre al programa');
+    }
+    if (tempoDefault.trim() && normalizeTempo(tempoDefault) == null) {
+      const message = `Tempo por defecto: ${TEMPO_FORMAT}.`;
+      onInvalid({ step: 0, message });
+      return toast.error(message);
     }
     const payload = buildPayload(header, days, weeks, (n) => byName.get(n.toLowerCase())?.id ?? null);
     if (payload.days.length === 0) {

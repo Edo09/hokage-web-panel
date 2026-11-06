@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { normalizeTempo } from '@/lib/tempo';
 import { effectiveForWeek, range } from '@/components/program/previewModel';
-import type { PreviewExercise, PreviewProgram } from '@/components/program/previewModel';
+import type { PreviewExercise, PreviewProgram, PreviewWeek } from '@/components/program/previewModel';
 
 /**
  * "How will this look in the client's app?" — a faithful replica of the mobile
@@ -10,10 +11,14 @@ import type { PreviewExercise, PreviewProgram } from '@/components/program/previ
  *
  * FIDELITY RULES (mirrored from the app's utils/program.ts effectivePrescription
  * — keep in sync if that changes):
- *   - the ONLY thing a week modulates per row is `sets_override` (deload);
- *   - the week's global RIR / %load is shown ONCE in the week summary, never
+ *   - per row, a week modulates the set count (deload) and lends its RIR to an
+ *     exercise that sets none;
+ *   - the week's global %load is shown ONCE in the week summary, never
  *     repeated on each exercise row;
- *   - a row shows only the exercise's OWN pinned %1RM or qualitative load.
+ *   - a row shows only the exercise's OWN pinned %1RM or qualitative load;
+ *   - tempo is the exercise's own, else the program's default: a «Tempo
+ *     3-1-2-0» chip, or a note line when written another way;
+ *   - no rest on the cards: it comes after training, inside the exercise.
  *
  * Colours are hard-coded to the app's dark palette on purpose: this simulates a
  * device, so it must not follow the panel's light/dark theme.
@@ -277,7 +282,8 @@ export function MobileProgramPreview({
                         <ExRowPreview
                           ex={ex}
                           week={week}
-                          setsOverride={w?.setsOverride ?? null}
+                          w={w}
+                          tempoDefault={program.tempoDefault}
                           first={i === 0 || (inGroup && !starts)}
                         />
                       </div>
@@ -419,20 +425,28 @@ function Panel({
 function ExRowPreview({
   ex,
   week,
-  setsOverride,
+  w,
+  tempoDefault,
   first,
 }: {
   ex: PreviewExercise;
   week: number;
-  setsOverride: number | null;
+  w: PreviewWeek | null;
+  tempoDefault: string | null;
   first: boolean;
 }) {
-  // The week modulates the set count (deload); the exercise's own override
-  // for that week wins over it — same precedence as the app.
-  const eff = effectiveForWeek(ex, week, setsOverride);
+  // The week modulates the set count (deload) and lends its RIR to an
+  // exercise without one; the exercise's own override for that week wins
+  // over both — same precedence as the app.
+  const eff = effectiveForWeek(ex, week, w);
   const reps = range(eff.repMin, eff.repMax);
   const setsReps = ex.unilateral ? `${eff.sets} × ${reps} / lado` : `${eff.sets} × ${reps}`;
   const rir = range(eff.rirMin, eff.rirMax);
+  // The exercise's tempo, else the program's: a chip when it reads as
+  // 3-1-2-0, otherwise a note line as written.
+  const tempoRaw = ex.tempo?.trim() || tempoDefault?.trim() || null;
+  const tempo = normalizeTempo(tempoRaw);
+  const tempoText = tempo == null ? tempoRaw : null;
   const isGif = ex.videoUrl != null && IS_IMG.test(ex.videoUrl.split('?')[0]);
 
   return (
@@ -480,16 +494,21 @@ function ExRowPreview({
               RIR {rir}
             </Tag>
           )}
+          {tempo != null && (
+            <Tag bg={APP.elevated} fg={APP.tertiary}>
+              Tempo {tempo}
+            </Tag>
+          )}
           {eff.adjusted && (
             <Tag bg={APP.elevated} fg={APP.tertiary}>
               Ajustado esta semana
             </Tag>
           )}
         </div>
-        {(ex.tempo || ex.rest != null || ex.notes) && (
+        {/* No rest on the card: it comes after training, inside the exercise. */}
+        {(tempoText || ex.notes) && (
           <div className="mt-1 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[10.5px]" style={{ color: APP.muted }}>
-            {ex.tempo && <span>Tempo {ex.tempo}</span>}
-            {ex.rest != null && <span>{ex.rest}s descanso</span>}
+            {tempoText && <span>Tempo {tempoText}</span>}
             {ex.notes && <span>{ex.notes}</span>}
           </div>
         )}

@@ -10,6 +10,7 @@
  * while it's still the same exercise: a ref on a swapped movement is ignored.
  */
 import type { LoadQualitative } from '@/types';
+import { normalizeTempo } from '@/lib/tempo';
 import {
   clamp,
   emptyWeek,
@@ -254,14 +255,16 @@ export function aiToDraft(raw: unknown, before: DayRow[] | null, isKnown: (name:
         rirMax,
         loadPct: str(int(x.load_pct_1rm, 1, 100)),
         loadQual,
-        tempo: text(x.tempo, 200),
+        // A tempo the app can't read as 3-1-2-0 is dropped rather than
+        // blocking the coach's save on the model's wording.
+        tempo: normalizeTempo(text(x.tempo, 200)) ?? '',
         rest: str(int(x.rest_seconds, 0, 900)),
         notes: text(x.notes, 500),
         advOpen: false,
         superset: SUPERSET_LETTERS.includes(letter) ? letter : '',
         overrides: overridesFrom(x.overrides, weeksN),
       };
-      row.advOpen = !!(row.rirMin || row.rirMax || row.loadPct || row.unilateral || row.tempo || row.notes);
+      row.advOpen = !!(row.rirMin || row.rirMax || row.loadPct || row.unilateral || row.notes);
       return [row];
     });
     if (exercises.length === 0) return [];
@@ -307,7 +310,7 @@ export function aiToDraft(raw: unknown, before: DayRow[] | null, isKnown: (name:
       description: text(raw.description, 500),
       durationWeeks: String(weeksN),
       progressionRule: text(raw.progression_rule, 300),
-      tempoDefault: text(raw.tempo_default, 200),
+      tempoDefault: normalizeTempo(text(raw.tempo_default, 200)) ?? '',
       notes: text(raw.notes, 1000),
     },
     days,

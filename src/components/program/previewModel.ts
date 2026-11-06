@@ -36,15 +36,17 @@ export type PreviewOverride = Partial<{
 }>;
 
 /** The row as the client sees it in `week`: its own override for that week
- *  first, then the week's deload set count, then the base prescription. */
-export function effectiveForWeek(ex: PreviewExercise, week: number, setsOverride: number | null) {
+ *  first, then the week's deload set count and, for an exercise without its
+ *  own RIR, the week's RIR, then the base prescription. */
+export function effectiveForWeek(ex: PreviewExercise, week: number, w: PreviewWeek | null) {
   const o = ex.overrides[week];
+  const ownRir = ex.rirMin != null || ex.rirMax != null;
   return {
-    sets: o?.sets ?? setsOverride ?? ex.sets,
+    sets: o?.sets ?? w?.setsOverride ?? ex.sets,
     repMin: o?.repMin ?? ex.repMin,
     repMax: o?.repMax ?? ex.repMax,
-    rirMin: o?.rirMin ?? ex.rirMin,
-    rirMax: o?.rirMax ?? ex.rirMax,
+    rirMin: o?.rirMin ?? (ownRir ? ex.rirMin : (w?.rirMin ?? null)),
+    rirMax: o?.rirMax ?? (ownRir ? ex.rirMax : (w?.rirMax ?? null)),
     loadPct: o?.loadPct ?? ex.loadPct,
     adjusted: o != null && Object.keys(o).length > 0,
   };

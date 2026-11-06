@@ -5,6 +5,7 @@
  */
 import type { LoadQualitative, ProgramStatus, ProgramWithDetail, WeekOverride } from '@/types';
 import type { ProgramDayInput, SaveProgramInput } from '@/services/programs';
+import { normalizeTempo, TEMPO_FORMAT } from '@/lib/tempo';
 
 /* Stored lowercase English; UI shows Spanish. '' = "Día N" only (no weekday). */
 export const WEEKDAYS: { value: string; label: string }[] = [
@@ -213,7 +214,8 @@ export interface DraftData {
  * wrong — not which field. Returns the step to jump to plus the message.
  *
  * Keep in sync with the migration: sets 1–20, reps 1–100, RIR 0–10,
- * %1RM 1–100, rest 0–900, and min ≤ max on reps and RIR.
+ * %1RM 1–100, rest 0–900, and min ≤ max on reps and RIR. The tempo isn't a
+ * database rule but the app's: four phases, 3-1-2-0 (src/lib/tempo.ts).
  */
 export const checkRange = (
   raw: string,
@@ -290,6 +292,10 @@ export function validateProgram(days: DayRow[], weeks: WeekRow[]): ProgramInvali
         const c = toInt(o.rirMin);
         const e = toInt(o.rirMax);
         if (c != null && e != null && c > e) return { step: 1, dayIndex: di, message: `${at}: el RIR va de menor a mayor.` };
+      }
+
+      if (x.tempo.trim() && normalizeTempo(x.tempo) == null) {
+        return { step: 1, dayIndex: di, message: `${where}: ${TEMPO_FORMAT}.` };
       }
 
       const pct = checkRange(x.loadPct, 1, 100, 'el %1RM');
@@ -438,7 +444,7 @@ export function buildPayload(
             rir_max: toInt(x.rirMax),
             load_pct_1rm: toInt(x.loadPct),
             load_qualitative: (x.loadQual || null) as LoadQualitative | null,
-            tempo: x.tempo.trim() || null,
+            tempo: normalizeTempo(x.tempo) ?? (x.tempo.trim() || null),
             rest_seconds: toInt(x.rest),
             notes: x.notes.trim() || null,
             sort_order: xi,
@@ -457,7 +463,7 @@ export function buildPayload(
     start_date: header.startDate,
     status: header.status,
     progression_rule: header.progressionRule.trim() || null,
-    tempo_default: header.tempoDefault.trim() || null,
+    tempo_default: normalizeTempo(header.tempoDefault) ?? (header.tempoDefault.trim() || null),
     notes: header.notes.trim() || null,
     lock_future_weeks: header.lockFutureWeeks,
     days: outDays,
