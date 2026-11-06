@@ -27,6 +27,7 @@ const CONSTRAINT_MESSAGES: { match: RegExp; message: string }[] = [
   { match: /start_date cannot be in the past/, message: 'La fecha de inicio no puede ser anterior a hoy.' },
   { match: /uniq_one_active_program_per_user/, message: 'Ese cliente ya tiene un programa activo.' },
   { match: /exercises_name_lower_idx/, message: 'Ya existe un ejercicio con ese nombre.' },
+  { match: /app_sound_settings_sets/, message: 'Ese sonido no está en la app.' },
 ];
 
 /** Best available human message for any thrown value. */

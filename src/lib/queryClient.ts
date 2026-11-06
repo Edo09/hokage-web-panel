@@ -40,4 +40,5 @@ export const qk = {
   supplementDays: (clientId: string) => ['supplement-days', clientId] as const,
   clientNote: (clientId: string) => ['client-note', clientId] as const,
   coachNotifications: ['coach-notifications'] as const,
+  appSounds: ['app-sounds'] as const,
 };

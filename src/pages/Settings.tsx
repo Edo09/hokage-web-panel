@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
 import { Segmented } from '@/components/ui/segmented';
+import { AppSoundsCard } from '@/components/settings/AppSoundsCard';
 
 export default function Settings() {
   const { coach, save } = useCoach();
@@ -144,6 +145,8 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      <AppSoundsCard className="lg:col-span-2" />
     </div>
   );
 }
